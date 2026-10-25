@@ -1,0 +1,20 @@
+{
+  "name": "@tappet/intelligence",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Provider-neutral model interface, request interpretation and extraction.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tappet/workflow": "workspace:*"
+  },
+  "devDependencies": {
+    "@tappet/connectors": "workspace:*"
+  }
+}

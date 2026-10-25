@@ -1,0 +1,17 @@
+{
+  "name": "@tappet/workflow",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Portable workflow definitions, validation, readable sentences and the runner.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}
