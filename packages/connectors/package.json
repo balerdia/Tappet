@@ -1,0 +1,17 @@
+{
+  "name": "@tappet/connectors",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Connector manifests and runtimes shared by Organise and Automate.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tappet/workflow": "workspace:*"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@tappet/api",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "TAPPET_DEV_AUTH=1 DATABASE_PATH=../../data/tappet.sqlite tsx watch src/node.ts",
+    "start": "tsx src/node.ts",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@tappet/connectors": "workspace:*",
+    "@tappet/db": "workspace:*",
+    "@tappet/workflow": "workspace:*",
+    "hono": "^4.13.14",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261025.1",
+    "tsx": "^4.23.15",
+    "wrangler": "^4.152.0"
+  }
+}

@@ -147,3 +147,9 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Tappet
+.wrangler/
+*.sqlite
+*.sqlite-journal
+data/

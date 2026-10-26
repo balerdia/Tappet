@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* Calm, warm neutrals with one quiet accent. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-canvas: #faf9f7;
+  --color-surface: #ffffff;
+  --color-ink: #1f2328;
+  --color-muted: #646b73;
+  --color-line: #e7e4df;
+  --color-accent: #2f6f62;
+  --color-accent-soft: #e6f0ed;
+
+  --color-verified: #2f6f62;
+  --color-inferred: #8a6d1f;
+  --color-uncertain: #9a4b3c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #16181b;
+    --color-surface: #1e2125;
+    --color-ink: #e9e7e3;
+    --color-muted: #a1a6ad;
+    --color-line: #2e3237;
+    --color-accent: #7cc4b3;
+    --color-accent-soft: #23332f;
+    --color-verified: #7cc4b3;
+    --color-inferred: #e0bf63;
+    --color-uncertain: #e79a8a;
+  }
+}
+
+body {
+  @apply bg-canvas text-ink antialiased;
+}

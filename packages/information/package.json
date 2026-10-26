@@ -1,0 +1,17 @@
+{
+  "name": "@tappet/information",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Findings, evidence and relationships for Organise.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tappet/connectors": "workspace:*"
+  }
+}
