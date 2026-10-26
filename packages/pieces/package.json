@@ -1,0 +1,19 @@
+{
+  "name": "@tappet/pieces",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Runs Activepieces pieces as Tappet connector actions. Node only: not for the Workers bundle.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@activepieces/piece-linear": "0.9.1",
+    "@tappet/connectors": "workspace:*",
+    "@tappet/workflow": "workspace:*"
+  }
+}

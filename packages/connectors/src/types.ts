@@ -1,4 +1,5 @@
 import type { ActionHandler } from "@tappet/workflow";
+import type { OAuthProviderId } from "./oauth.js";
 
 /**
  * One connector system serves both modes. Organise uses read/search/sync;
@@ -8,7 +9,7 @@ import type { ActionHandler } from "@tappet/workflow";
 export type Capability = "read" | "search" | "write" | "events" | "sync";
 
 export type AuthSpec =
-  | { kind: "oauth2"; provider: "google" | "linear" | "microsoft"; scopes: string[] }
+  | { kind: "oauth2"; provider: OAuthProviderId; scopes: string[] }
   | { kind: "apiKey"; label: string }
   | { kind: "none" };
 

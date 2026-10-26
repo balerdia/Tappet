@@ -192,8 +192,8 @@ describe("runner", () => {
   it("loops, and stops cleanly when nothing is found", async () => {
     const sentTo: unknown[] = [];
     const tasks = [
-      { title: "Brief", state: "started", assigneeEmail: "a@x.com" },
-      { title: "Copy", state: "completed", assigneeEmail: "b@x.com" },
+      { title: "Brief", state_type: "started", assignee_email: "a@x.com" },
+      { title: "Copy", state_type: "completed", assignee_email: "b@x.com" },
     ];
     const deps = (items: unknown[]) => ({
       now: () => t0,

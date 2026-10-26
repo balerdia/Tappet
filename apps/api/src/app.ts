@@ -3,6 +3,8 @@ import { z } from "zod";
 import { and, desc, eq, schema, type Database } from "@tappet/db";
 import type { ConnectorManifest } from "@tappet/connectors";
 import { resolveMember, type Authenticator } from "./auth.js";
+import { registerConnectionRoutes } from "./connections.js";
+import type { ConnectConfig } from "./credentials.js";
 import {
   describeWorkflow,
   validateWorkflow,
@@ -19,15 +21,17 @@ export type AppDeps = {
   newId: (prefix: string) => string;
   /** Without one, every route except /api/health returns 401. */
   auth?: Authenticator;
+  /** Without one, apps can't be connected. */
+  connect?: ConnectConfig;
 };
 
-type Env = { Variables: { userId: string; workspaceId: string } };
+export type AppEnv = { Variables: { userId: string; workspaceId: string } };
 
 const DefinitionBody = z.object({ definition: z.unknown() });
 
 export function createApp(deps: AppDeps) {
   const { db } = deps;
-  const app = new Hono<Env>().basePath("/api");
+  const app = new Hono<AppEnv>().basePath("/api");
 
   app.get("/health", (c) => c.json({ ok: true }));
 
@@ -82,22 +86,7 @@ export function createApp(deps: AppDeps) {
 
   // ---------- Connections ----------
 
-  app.get("/connectors", (c) => c.json({ connectors: deps.manifests }));
-
-  app.get("/connections", async (c) => {
-    const rows = await db
-      .select({
-        id: schema.connections.id,
-        connector: schema.connections.connector,
-        label: schema.connections.label,
-        status: schema.connections.status,
-        scopes: schema.connections.scopes,
-        createdAt: schema.connections.createdAt,
-      })
-      .from(schema.connections)
-      .where(eq(schema.connections.workspaceId, c.get("workspaceId")));
-    return c.json({ connections: rows });
-  });
+  registerConnectionRoutes(app, deps, audit);
 
   // ---------- Workflows ----------
 

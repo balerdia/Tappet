@@ -11,6 +11,13 @@ type WorkerEnv = {
   /** Set with `wrangler secret put CLERK_SECRET_KEY`. */
   CLERK_SECRET_KEY?: string;
   CLERK_AUTHORIZED_PARTIES?: string;
+  /** Secrets for connecting apps; set each with `wrangler secret put`. */
+  CREDENTIALS_KEY?: string;
+  APP_URL?: string;
+  LINEAR_CLIENT_ID?: string;
+  LINEAR_CLIENT_SECRET?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 };
 
 export default {

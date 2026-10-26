@@ -5,6 +5,7 @@ import { AuthProvider } from "./auth";
 import { Layout } from "./components/Layout";
 import { Activity } from "./screens/Activity";
 import { Automate } from "./screens/Automate";
+import { ConnectionCallback } from "./screens/ConnectionCallback";
 import { Connections } from "./screens/Connections";
 import { Home } from "./screens/Home";
 import { Organise } from "./screens/Organise";
@@ -20,6 +21,7 @@ const router = createBrowserRouter([
       { path: "organise", element: <Organise /> },
       { path: "automate", element: <Automate /> },
       { path: "connections", element: <Connections /> },
+      { path: "connections/callback", element: <ConnectionCallback /> },
       { path: "activity", element: <Activity /> },
       { path: "settings", element: <Settings /> },
     ],

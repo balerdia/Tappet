@@ -2,6 +2,7 @@ import { builtInManifests, catalogFromManifests } from "@tappet/connectors";
 import type { Database } from "@tappet/db";
 import type { AppDeps } from "./app.js";
 import { clerkAuthenticator, clerkConfigFromEnv, devAuthenticator } from "./auth.js";
+import { connectConfigFromEnv } from "./credentials.js";
 
 /** Shared wiring for every host (Node, Docker, Workers, tests). */
 export function baseDeps(db: Database, env: Record<string, string | undefined>): AppDeps {
@@ -12,6 +13,7 @@ export function baseDeps(db: Database, env: Record<string, string | undefined>):
     now: () => new Date(),
     newId: (prefix) => `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`,
     auth: authFromEnv(env),
+    connect: connectConfigFromEnv(env),
   };
 }
 

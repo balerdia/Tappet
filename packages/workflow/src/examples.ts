@@ -76,7 +76,7 @@ export const advancedExample: WorkflowDefinition = {
       id: "findOverdue",
       connector: "linear",
       action: "searchIssues",
-      input: { filter: { literal: "overdue" } },
+      input: { query: { literal: "overdue" } },
     },
     {
       kind: "forEach",
@@ -88,7 +88,11 @@ export const advancedExample: WorkflowDefinition = {
         {
           kind: "if",
           id: "notDone",
-          condition: { op: "neq", left: { ref: "task.state" }, right: { literal: "completed" } },
+          condition: {
+            op: "neq",
+            left: { ref: "task.state_type" },
+            right: { literal: "completed" },
+          },
           then: [
             {
               kind: "action",
@@ -96,9 +100,9 @@ export const advancedExample: WorkflowDefinition = {
               connector: "gmail",
               action: "sendEmail",
               input: {
-                to: { ref: "task.assigneeEmail" },
+                to: { ref: "task.assignee_email" },
                 subject: { template: "Reminder: {{task.title}} is overdue" },
-                body: { template: "{{task.title}} was due on {{task.dueDate}}." },
+                body: { template: "{{task.title}} was due on {{task.due_date}}." },
               },
             },
           ],

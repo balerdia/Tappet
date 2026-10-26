@@ -133,6 +133,18 @@ importers:
         specifier: workspace:*
         version: link:../connectors
 
+  packages/pieces:
+    dependencies:
+      '@activepieces/piece-linear':
+        specifier: 0.9.1
+        version: 0.9.1
+      '@tappet/connectors':
+        specifier: workspace:*
+        version: link:../connectors
+      '@tappet/workflow':
+        specifier: workspace:*
+        version: link:../workflow
+
   packages/workflow:
     dependencies:
       zod:
@@ -140,6 +152,9 @@ importers:
         version: 4.6.7
 
 packages:
+
+  '@activepieces/piece-linear@0.9.1':
+    resolution: {integrity: sha512-8HX8MbTRlkfRvpwW1fGxl2xr6VbNLSceCDfVKQAZgjF1Uz8xavdlDn5RF7tgWoyxZPqMgWUwcpxdWoH7Hq56Yg==}
 
   '@clerk/backend@3.26.2':
     resolution: {integrity: sha512-IQAeEPmAy1QXzQULVYPf4yato8isGoI5XpoaJoCkV9GC+22w+GgSWP3gCJ3wcaPcSxeEHPkQck9sLwRsW7ZYTw==}
@@ -1859,6 +1874,8 @@ packages:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
+
+  '@activepieces/piece-linear@0.9.1': {}
 
   '@clerk/backend@3.26.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:

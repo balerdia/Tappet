@@ -19,6 +19,7 @@ packages/
   workflow/       Workflow definition schema, validation, readable sentences, portable runner
   connectors/     Connector manifests and runtimes (Gmail, Drive, Linear, HTTP, webhooks)
   information/    Findings, evidence, certainty, commitment coverage (Organise)
+  pieces/         Runs Activepieces pieces as connector actions (Node only)
   intelligence/   Provider-neutral model interface, request interpretation, untrusted-content handling
   db/             Drizzle schema and migrations. SQLite for Node/Docker, D1 for Cloudflare
 ```
@@ -51,6 +52,19 @@ Without the keys, `pnpm dev` falls back to a built-in development user (`TAPPET_
 On Cloudflare, set the secret with `wrangler secret put CLERK_SECRET_KEY` and the allowed origins in `wrangler.toml`.
 
 Each person gets their own workspace the first time they sign in. Workspaces live in our database; Clerk only tells us who someone is.
+
+### Connecting apps
+
+To let people connect apps, set:
+
+| Variable                                   | What                                                            |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| `CREDENTIALS_KEY`                          | Encrypts stored tokens. Generate with `openssl rand -base64 32` |
+| `APP_URL`                                  | Where the web app lives. Defaults to `http://localhost:5173`    |
+| `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET` | From a Linear OAuth app (Settings → API → OAuth applications)   |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | From a Google Cloud OAuth client                                |
+
+Register `APP_URL` + `/connections/callback` (e.g. `http://localhost:5173/connections/callback`) as the redirect address with each app. Apps without credentials show as "Coming soon".
 
 ### Docker (self-hosted)
 

@@ -48,8 +48,12 @@ export const linear: ConnectorManifest = {
     { name: "issueUpdated", phrase: "a task changes" },
   ],
   actions: [
-    { name: "searchIssues", phrase: "find tasks in Linear" },
-    { name: "createIssue", phrase: "create a task in Linear", requiredInputs: ["title"] },
+    { name: "searchIssues", phrase: "find tasks in Linear", requiredInputs: ["query"] },
+    {
+      name: "createIssue",
+      phrase: "create a task in Linear",
+      requiredInputs: ["teamId", "title"],
+    },
     { name: "updateIssue", phrase: "update a task in Linear", requiredInputs: ["id"] },
   ],
 };
