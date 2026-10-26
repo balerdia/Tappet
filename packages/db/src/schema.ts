@@ -24,7 +24,12 @@ export const workspaces = sqliteTable("workspaces", {
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
-  email: text("email").notNull().unique(),
+  /**
+   * Stable id from the sign-in provider ("clerk:user_…", or "dev" locally).
+   * The provider owns identity; we only keep this link and a display copy.
+   */
+  externalId: text("external_id").notNull().unique(),
+  email: text("email"),
   name: text("name"),
   createdAt: createdAt(),
 });

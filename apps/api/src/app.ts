@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { and, desc, eq, schema, type Database } from "@tappet/db";
 import type { ConnectorManifest } from "@tappet/connectors";
+import { resolveMember, type Authenticator } from "./auth.js";
 import {
   describeWorkflow,
   validateWorkflow,
@@ -16,11 +17,8 @@ export type AppDeps = {
   manifests: ConnectorManifest[];
   now: () => Date;
   newId: (prefix: string) => string;
-  /**
-   * Development only: treat every request as the seeded dev user. Real
-   * sign-in replaces this before anything is deployed for customers.
-   */
-  devAuth?: { userId: string; workspaceId: string };
+  /** Without one, every route except /api/health returns 401. */
+  auth?: Authenticator;
 };
 
 type Env = { Variables: { userId: string; workspaceId: string } };
@@ -34,9 +32,11 @@ export function createApp(deps: AppDeps) {
   app.get("/health", (c) => c.json({ ok: true }));
 
   app.use("*", async (c, next) => {
-    if (!deps.devAuth) return c.json({ error: "Please sign in." }, 401);
-    c.set("userId", deps.devAuth.userId);
-    c.set("workspaceId", deps.devAuth.workspaceId);
+    const subject = deps.auth ? await deps.auth.verify(c.req.raw).catch(() => null) : null;
+    if (!deps.auth || !subject) return c.json({ error: "Please sign in." }, 401);
+    const member = await resolveMember(db, deps.auth, subject, deps.newId);
+    c.set("userId", member.userId);
+    c.set("workspaceId", member.workspaceId);
     await next();
   });
 

@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@clerk/react": "^6.18.1",
     "@tappet/workflow": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

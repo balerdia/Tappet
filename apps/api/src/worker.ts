@@ -8,12 +8,16 @@ import { baseDeps } from "./setup.js";
 type WorkerEnv = {
   DB: D1Database;
   TAPPET_DEV_AUTH?: string;
+  /** Set with `wrangler secret put CLERK_SECRET_KEY`. */
+  CLERK_SECRET_KEY?: string;
+  CLERK_AUTHORIZED_PARTIES?: string;
 };
 
 export default {
   fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext) {
     const db = createD1Db(env.DB);
-    const app = createApp(baseDeps(db, env.TAPPET_DEV_AUTH === "1"));
+    const { DB: _db, ...vars } = env;
+    const app = createApp(baseDeps(db, vars));
     return app.fetch(request, env, ctx);
   },
 } satisfies ExportedHandler<WorkerEnv>;

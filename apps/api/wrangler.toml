@@ -17,3 +17,6 @@ migrations_dir = "../../packages/db/migrations"
 
 [vars]
 TAPPET_DEV_AUTH = "0"
+# Comma-separated origins allowed to issue sign-in tokens, e.g. "https://app.example.com".
+CLERK_AUTHORIZED_PARTIES = ""
+# The secret key is not a var: run `wrangler secret put CLERK_SECRET_KEY`.

@@ -34,7 +34,23 @@ pnpm test
 pnpm typecheck
 ```
 
-The dev server uses a local SQLite file in `data/` and a built-in development user. There is no real sign-in yet.
+The dev server uses a local SQLite file in `data/`.
+
+### Sign-in
+
+Sign-in uses [Clerk](https://clerk.com). Set these environment variables to turn it on:
+
+| Variable                     | Where | What                                                                                |
+| ---------------------------- | ----- | ----------------------------------------------------------------------------------- |
+| `VITE_CLERK_PUBLISHABLE_KEY` | web   | Publishable key (`pk_…`) from the Clerk Dashboard                                   |
+| `CLERK_SECRET_KEY`           | API   | Secret key (`sk_…`). Never expose this to the browser                               |
+| `CLERK_AUTHORIZED_PARTIES`   | API   | Comma-separated origins allowed to sign in. `pnpm dev` sets `http://localhost:5173` |
+
+Without the keys, `pnpm dev` falls back to a built-in development user (`TAPPET_DEV_AUTH=1`). That fallback is for local work only: with neither Clerk nor `TAPPET_DEV_AUTH` set, the API refuses every request except `/api/health`.
+
+On Cloudflare, set the secret with `wrangler secret put CLERK_SECRET_KEY` and the allowed origins in `wrangler.toml`.
+
+Each person gets their own workspace the first time they sign in. Workspaces live in our database; Clerk only tells us who someone is.
 
 ### Docker (self-hosted)
 

@@ -3,15 +3,13 @@ import { createNodeDb } from "@tappet/db/node";
 import { examples } from "@tappet/workflow";
 import { createApp } from "./app.js";
 import { decryptSecret, encryptSecret } from "./secrets.js";
-import { baseDeps, seedDevWorkspace } from "./setup.js";
+import { authFromEnv, baseDeps } from "./setup.js";
 
 describe("api", () => {
   let app: ReturnType<typeof createApp>;
 
   beforeEach(async () => {
-    const db = createNodeDb(":memory:");
-    await seedDevWorkspace(db);
-    app = createApp(baseDeps(db, true));
+    app = createApp(baseDeps(createNodeDb(":memory:"), { TAPPET_DEV_AUTH: "1" }));
   });
 
   const json = (method: string, body?: unknown) => ({
@@ -21,7 +19,7 @@ describe("api", () => {
   });
 
   it("requires sign-in when dev auth is off", async () => {
-    const locked = createApp(baseDeps(createNodeDb(":memory:"), false));
+    const locked = createApp(baseDeps(createNodeDb(":memory:"), {}));
     expect((await locked.request("/api/health")).status).toBe(200);
     expect((await locked.request("/api/workflows")).status).toBe(401);
   });

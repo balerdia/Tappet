@@ -3,6 +3,10 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable
 COPY . .
+# The publishable key is baked into the web build. It's public, so a build arg is fine.
+# Pass CLERK_SECRET_KEY at run time instead: docker run -e CLERK_SECRET_KEY=…
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
 RUN pnpm install --frozen-lockfile && pnpm --filter @tappet/web build
 
 FROM node:22-bookworm-slim

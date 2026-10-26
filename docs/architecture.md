@@ -46,7 +46,9 @@ Each action gets an idempotency key (`runId:path`) that's stable across retries.
 - Credentials are encrypted with AES-GCM (`apps/api/src/secrets.ts`); the key lives in the environment, never the database. The API never returns them.
 - Organise is read-only toward source systems. Changes go through Automate, which requires approval.
 - Content from sources is wrapped with `untrusted()` before it reaches a model. Model output is only ever a draft that must validate and be approved.
-- Dev sign-in (`TAPPET_DEV_AUTH=1`) is for local work only. Without it, every API route except `/api/health` returns 401.
+- Sign-in goes through an `Authenticator` interface (`apps/api/src/auth.ts`). Clerk is the managed default; the API verifies Clerk session tokens on every request. A self-hosted deployment could swap in another provider without touching the routes.
+- Users link to the provider by `external_id`. Workspaces and memberships stay in our database, so Clerk holds identity only.
+- Dev sign-in (`TAPPET_DEV_AUTH=1`) is for local work only. With neither it nor Clerk configured, every API route except `/api/health` returns 401.
 
 ## Not built yet
 
@@ -56,12 +58,12 @@ Roughly in milestone order:
 2. **Organise**: retrieval across sources, commitment extraction (model), evidence UI, saved views.
 3. **Sentence builder**: phrases become controls that edit the definition; progressive disclosure.
 4. **Execute**: host loop that starts runs from triggers (with `runs.trigger_key` dedupe), advances due runs, and writes `run_events`. Schedules via Cron Triggers on Cloudflare and a timer on Node.
-5. **Experience**: real sign-in, onboarding, activity detail, pause/stop/recover UI.
+5. **Experience**: onboarding, workspace invites, activity detail, pause/stop/recover UI.
 6. **Portability**: a standalone CLI that imports an export and runs it.
 7. **Model adapters**: concrete providers behind `ModelProvider`.
 
 ## Open questions
 
 - Licence split (AGPLv3 core / FSL app) pending legal review. Everything is MIT for now.
-- Sign-in provider (own auth vs. a hosted service).
+- Self-hosted sign-in: Clerk is a hosted service, so self-hosters need their own Clerk account until a local provider exists behind the same interface.
 - How approval at activation relates to per-run approval for sensitive actions. Today: actions marked `sensitive` need a per-run approval; everything else is covered by approving the workflow.

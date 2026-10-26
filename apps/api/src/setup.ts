@@ -1,32 +1,30 @@
 import { builtInManifests, catalogFromManifests } from "@tappet/connectors";
-import { schema, type Database } from "@tappet/db";
+import type { Database } from "@tappet/db";
 import type { AppDeps } from "./app.js";
-
-export const DEV_USER = { userId: "user_dev", workspaceId: "ws_dev" };
+import { clerkAuthenticator, clerkConfigFromEnv, devAuthenticator } from "./auth.js";
 
 /** Shared wiring for every host (Node, Docker, Workers, tests). */
-export function baseDeps(db: Database, devAuth: boolean): AppDeps {
+export function baseDeps(db: Database, env: Record<string, string | undefined>): AppDeps {
   return {
     db,
     manifests: builtInManifests,
     catalog: catalogFromManifests(builtInManifests),
     now: () => new Date(),
     newId: (prefix) => `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`,
-    devAuth: devAuth ? DEV_USER : undefined,
+    auth: authFromEnv(env),
   };
 }
 
-export async function seedDevWorkspace(db: Database) {
-  await db
-    .insert(schema.workspaces)
-    .values({ id: DEV_USER.workspaceId, name: "My business" })
-    .onConflictDoNothing();
-  await db
-    .insert(schema.users)
-    .values({ id: DEV_USER.userId, email: "dev@localhost", name: "Developer" })
-    .onConflictDoNothing();
-  await db
-    .insert(schema.memberships)
-    .values({ workspaceId: DEV_USER.workspaceId, userId: DEV_USER.userId, role: "owner" })
-    .onConflictDoNothing();
+/** Clerk when its key is set; dev sign-in only when explicitly asked for. */
+export function authFromEnv(env: Record<string, string | undefined>) {
+  const clerk = clerkConfigFromEnv(env);
+  if (clerk) return clerkAuthenticator(clerk);
+  if (env.TAPPET_DEV_AUTH === "1") return devAuthenticator;
+  return undefined;
+}
+
+export function describeAuth(env: Record<string, string | undefined>): string {
+  if (clerkConfigFromEnv(env)) return "Clerk sign-in";
+  if (env.TAPPET_DEV_AUTH === "1") return "dev sign-in";
+  return "no sign-in configured: every request will be refused";
 }
