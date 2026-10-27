@@ -13,15 +13,36 @@ import { useApi } from "../useApi";
 import { SentenceView } from "../components/SentenceView";
 import { AskBox, Card, Chip, PageHeader, StatusBadge } from "../components/ui";
 
+// Schedules run in the timezone of whoever sets them up.
+const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const inMyTimezone = (def: WorkflowDefinition): WorkflowDefinition =>
+  def.trigger.kind === "schedule"
+    ? { ...def, trigger: { ...def.trigger, timezone: browserTimezone } }
+    : def;
+
 const STARTERS: { label: string; definition: WorkflowDefinition }[] = [
   { label: "Add a task to Linear", definition: examples.linearTaskExample },
+  {
+    label: "Add a Linear task every weekday",
+    definition: inMyTimezone(examples.linearScheduledExample),
+  },
   { label: "Tell me about new enquiries", definition: examples.simpleExample },
   { label: "Welcome new customers", definition: examples.conditionalExample },
-  { label: "Remind people about overdue tasks", definition: examples.advancedExample },
+  {
+    label: "Remind people about overdue tasks",
+    definition: inMyTimezone(examples.advancedExample),
+  },
 ];
 
 type Preview = { ok: boolean; issues: ValidationIssue[]; sentences: SentenceLine[] };
-type Workflow = { id: string; name: string; status: WorkflowStatus; activeVersion: number | null };
+type Workflow = {
+  id: string;
+  name: string;
+  status: WorkflowStatus;
+  activeVersion: number | null;
+  trigger?: string;
+  nextRunAt?: string;
+};
 type Run = {
   id: string;
   status: string;
@@ -200,9 +221,11 @@ function WorkflowRow({ workflow, onChange }: { workflow: Workflow; onChange: () 
         <div className="flex gap-2">
           {workflow.status === "running" ? (
             <>
-              <button onClick={runNow} disabled={busy} className={button}>
-                Run now
-              </button>
+              {(workflow.trigger === "manual" || workflow.trigger === "schedule") && (
+                <button onClick={runNow} disabled={busy} className={button}>
+                  Run now
+                </button>
+              )}
               <button onClick={pause} disabled={busy} className={button}>
                 Pause
               </button>
@@ -214,6 +237,20 @@ function WorkflowRow({ workflow, onChange }: { workflow: Workflow; onChange: () 
           )}
         </div>
       </div>
+      {workflow.nextRunAt && (
+        <p className="mt-2 text-sm text-muted">
+          Next run{" "}
+          <time dateTime={workflow.nextRunAt}>
+            {new Date(workflow.nextRunAt).toLocaleString(undefined, {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </time>
+        </p>
+      )}
       {error && <p className="mt-3 text-sm text-uncertain">{error}</p>}
       {run && (
         <div className="mt-3 text-sm">

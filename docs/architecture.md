@@ -55,7 +55,12 @@ Each action gets an idempotency key (`runId:path`) that's stable across retries.
 
 `POST /api/connections/:connector/start` returns the provider's sign-in address; the callback exchanges the code, encrypts the tokens and stores one connection per app per workspace. Tokens close to expiry are refreshed before each run (`apps/api/src/credentials.ts`); a failed refresh marks the connection `needs_reauth`.
 
-`POST /api/workflows/:id/runs` starts a run of the approved version for automations with a `manual` trigger. `apps/api/src/runs.ts` loads credentials, calls `advance`, saves the run and writes `run_events` for Activity. Waiting runs (delays, retries) are picked up by a 30-second timer on Node and a one-minute Cron Trigger on Cloudflare.
+`POST /api/workflows/:id/runs` starts a run of the approved version for automations with a `manual` trigger. `apps/api/src/runs.ts` loads credentials, calls `advance`, saves the run and writes `run_events` for Activity. Scheduled automations can be run early the same way.
+
+Every tick (a 30-second timer on Node, a one-minute Cron Trigger on Cloudflare) does two things (`tick` in `apps/api/src/runs.ts`):
+
+1. **Starts due schedules.** For each running automation with a `schedule` trigger it works out the latest scheduled time at or before now, in the trigger's timezone (`packages/workflow/src/schedule.ts`, using croner). That time is the run's `trigger_key`, so the unique index on `(workflow_id, trigger_key)` stops a slot starting twice, even with overlapping ticks or several servers. Times before the version was approved never fire; a time missed by more than an hour (the server was down) is skipped rather than run late.
+2. **Carries on waiting runs** whose delay or retry is over.
 
 ## Not built yet
 
@@ -64,7 +69,7 @@ Roughly in milestone order:
 1. **Connections**: Google OAuth and the Gmail/Drive runtimes. (Linear, credential storage and refresh are done.)
 2. **Organise**: retrieval across sources, commitment extraction (model), evidence UI, saved views.
 3. **Sentence builder**: phrases become controls that edit the definition; progressive disclosure.
-4. **Execute**: start runs from event, schedule and webhook triggers (with `runs.trigger_key` dedupe). Manual runs and resuming due runs are done.
+4. **Execute**: start runs from event and webhook triggers. Manual runs, schedules and resuming due runs are done.
 5. **Experience**: onboarding, activity detail, stop/recover UI, approving pending steps. (Sign-in is done.)
 6. **Portability**: a standalone CLI that imports an export and runs it.
 7. **Model adapters**: concrete providers behind `ModelProvider`.

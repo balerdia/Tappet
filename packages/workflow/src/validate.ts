@@ -1,6 +1,7 @@
 import type { Catalog } from "./catalog.js";
 import { refsInCondition, refsInValue } from "./expressions.js";
 import { WorkflowDefinitionSchema, type Step, type WorkflowDefinition } from "./schema.js";
+import { checkSchedule } from "./schedule.js";
 
 export type ValidationIssue = {
   severity: "error" | "warning";
@@ -48,6 +49,10 @@ export function validateWorkflow(input: unknown, catalog?: Catalog): ValidationR
       });
     }
     if (trigger.filter) checkRefs(refsInCondition(trigger.filter), "trigger", new Set(), new Set());
+  }
+  if (trigger.kind === "schedule") {
+    const problem = checkSchedule(trigger);
+    if (problem) issues.push({ severity: "error", at: "trigger", message: problem });
   }
 
   function checkRefs(refs: string[], at: string, visibleSteps: Set<string>, vars: Set<string>) {

@@ -129,3 +129,11 @@ export const linearTaskExample: WorkflowDefinition = {
     },
   ],
 };
+
+/** The same Linear task, on a schedule instead of by hand. */
+export const linearScheduledExample: WorkflowDefinition = {
+  ...linearTaskExample,
+  id: "wf_linear_weekday_task",
+  name: "Add a Linear task every weekday morning",
+  trigger: { kind: "schedule", cron: "0 9 * * 1-5", timezone: "Europe/London" },
+};

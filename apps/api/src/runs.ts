@@ -7,12 +7,17 @@ import {
 import {
   advance,
   connectorsUsed,
+  latestScheduledRun,
   startRun,
   type AdvanceResult,
   type RunState,
   type WorkflowDefinition,
 } from "@tappet/workflow";
 import type { CredentialStore } from "./credentials.js";
+
+// A scheduled run that was missed (the server was down, say) still starts if
+// it's this recent. Older ones are skipped rather than firing hours late.
+const SCHEDULE_CATCH_UP_MS = 60 * 60_000;
 
 export type RunHostDeps = {
   db: Database;
@@ -110,23 +115,25 @@ export function createRunHost(deps: RunHostDeps) {
     return row?.definition as WorkflowDefinition | undefined;
   }
 
-  return {
-    /**
-     * Starts a run of the approved version. `triggerKey` identifies the event
-     * that started it, so the same event can't start two runs.
-     */
-    async start(opts: {
-      workspaceId: string;
-      workflowId: string;
-      version: number;
-      trigger: unknown;
-      triggerKey: string;
-    }): Promise<RunSummary> {
-      const def = await definitionFor(opts.workflowId, opts.version);
-      if (!def) throw new Error("The approved version of this automation is missing.");
-      const runId = deps.newId("run");
-      const state = startRun(def, runId, opts.trigger, deps.now());
-      await db.insert(schema.runs).values({
+  /**
+   * Starts a run of the approved version. `triggerKey` identifies the event
+   * that started it, so the same event can't start two runs: a repeat returns
+   * undefined.
+   */
+  async function start(opts: {
+    workspaceId: string;
+    workflowId: string;
+    version: number;
+    trigger: unknown;
+    triggerKey: string;
+  }): Promise<RunSummary | undefined> {
+    const def = await definitionFor(opts.workflowId, opts.version);
+    if (!def) throw new Error("The approved version of this automation is missing.");
+    const runId = deps.newId("run");
+    const state = startRun(def, runId, opts.trigger, deps.now());
+    const inserted = await db
+      .insert(schema.runs)
+      .values({
         id: runId,
         workspaceId: opts.workspaceId,
         workflowId: opts.workflowId,
@@ -134,11 +141,68 @@ export function createRunHost(deps: RunHostDeps) {
         status: "running",
         state,
         triggerKey: opts.triggerKey,
-      });
-      return step(opts.workspaceId, def, state);
+      })
+      .onConflictDoNothing()
+      .returning({ id: schema.runs.id });
+    if (!inserted.length) return undefined;
+    return step(opts.workspaceId, def, state);
+  }
+
+  return {
+    start,
+
+    /**
+     * Starts every scheduled automation whose latest scheduled time has come.
+     * The scheduled time is the trigger key, so ticks that overlap, or several
+     * servers ticking at once, still start each slot only once.
+     */
+    async startDueSchedules(): Promise<RunSummary[]> {
+      const now = deps.now();
+      const rows = await db
+        .select({
+          workspaceId: schema.workflows.workspaceId,
+          workflowId: schema.workflows.id,
+          version: schema.workflowVersions.version,
+          definition: schema.workflowVersions.definition,
+          approvedAt: schema.workflowVersions.approvedAt,
+        })
+        .from(schema.workflows)
+        .innerJoin(
+          schema.workflowVersions,
+          and(
+            eq(schema.workflowVersions.workflowId, schema.workflows.id),
+            eq(schema.workflowVersions.version, schema.workflows.activeVersion),
+          ),
+        )
+        .where(eq(schema.workflows.status, "running"));
+
+      const results: RunSummary[] = [];
+      for (const row of rows) {
+        const trigger = (row.definition as WorkflowDefinition).trigger;
+        if (trigger.kind !== "schedule" || !row.approvedAt) continue;
+        let slot: Date | undefined;
+        try {
+          slot = latestScheduledRun(trigger, now);
+        } catch {
+          continue; // Validation stops bad schedules being turned on; skip any that slipped by.
+        }
+        // Nothing from before it was turned on, and nothing too stale.
+        if (!slot || slot < new Date(row.approvedAt)) continue;
+        if (now.getTime() - slot.getTime() > SCHEDULE_CATCH_UP_MS) continue;
+
+        const run = await start({
+          workspaceId: row.workspaceId,
+          workflowId: row.workflowId,
+          version: row.version,
+          trigger: { scheduledFor: slot.toISOString() },
+          triggerKey: `schedule:${slot.toISOString()}`,
+        });
+        if (run) results.push(run);
+      }
+      return results;
     },
 
-    /** Carries on every run whose wait or retry is over. Called on a timer. */
+    /** Carries on every run whose wait or retry is over. */
     async advanceDue(limit = 25): Promise<RunSummary[]> {
       const due = await db
         .select()
@@ -162,3 +226,9 @@ export function createRunHost(deps: RunHostDeps) {
 }
 
 export type RunHost = ReturnType<typeof createRunHost>;
+
+/** One beat of the clock: start what's scheduled, then carry on what's waiting. */
+export async function tick(host: RunHost) {
+  await host.startDueSchedules();
+  await host.advanceDue();
+}

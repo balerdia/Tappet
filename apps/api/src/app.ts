@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
-import { and, desc, eq, lte, schema, type Database } from "@tappet/db";
+import { and, desc, eq, lte, schema, sql, type Database } from "@tappet/db";
 import type { ConnectorManifest, ConnectorRuntime, OAuthClient } from "@tappet/connectors";
 import {
   connectorsUsed,
   describeWorkflow,
+  nextScheduledRun,
   validateWorkflow,
   type Catalog,
   type WorkflowDefinition,
@@ -303,11 +304,35 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
 
   app.get("/workflows", async (c) => {
     const rows = await db
-      .select()
+      .select({ workflow: schema.workflows, definition: schema.workflowVersions.definition })
       .from(schema.workflows)
+      .leftJoin(
+        schema.workflowVersions,
+        and(
+          eq(schema.workflowVersions.workflowId, schema.workflows.id),
+          eq(
+            schema.workflowVersions.version,
+            sql`coalesce(${schema.workflows.activeVersion}, ${schema.workflows.latestVersion})`,
+          ),
+        ),
+      )
       .where(eq(schema.workflows.workspaceId, c.get("workspaceId")))
       .orderBy(desc(schema.workflows.updatedAt));
-    return c.json({ workflows: rows });
+    const now = deps.now();
+    return c.json({
+      workflows: rows.map(({ workflow, definition }) => {
+        const trigger = (definition as WorkflowDefinition | null)?.trigger;
+        let nextRunAt: string | undefined;
+        if (trigger?.kind === "schedule" && workflow.status === "running") {
+          try {
+            nextRunAt = nextScheduledRun(trigger, now)?.toISOString();
+          } catch {
+            // An invalid schedule can't be running; leave it blank if one is.
+          }
+        }
+        return { ...workflow, trigger: trigger?.kind, nextRunAt };
+      }),
+    });
   });
 
   app.post("/workflows", async (c) => {
@@ -457,7 +482,7 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
 
   // ---------- Runs ----------
 
-  /** Starts a run of the approved version now. Only for automations you start yourself. */
+  /** Starts a run of the approved version now. For manual and scheduled automations. */
   app.post("/workflows/:id/runs", async (c) => {
     const workspaceId = c.get("workspaceId");
     const wf = await findWorkflow(workspaceId, c.req.param("id"));
@@ -466,9 +491,10 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
       return c.json({ error: "Turn this automation on before running it." }, 409);
     const version = await findVersion(wf.id, wf.activeVersion);
     const def = version?.definition as WorkflowDefinition | undefined;
-    if (def?.trigger.kind !== "manual")
+    // Scheduled ones can run early; event-started ones need the event's data.
+    if (def?.trigger.kind !== "manual" && def?.trigger.kind !== "schedule")
       return c.json(
-        { error: "This automation starts by itself, so it can't be run by hand." },
+        { error: "This automation starts when something happens, so it can't be run by hand." },
         409,
       );
     const missing = await missingConnections(workspaceId, def);
@@ -476,14 +502,15 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
       return c.json({ error: missing.map((m) => m.reason).join(" "), missing }, 409);
 
     const body = RunBody.parse(await c.req.json().catch(() => undefined));
-    const runId = deps.newId("manual");
     const run = await runs.start({
       workspaceId,
       workflowId: wf.id,
       version: wf.activeVersion,
       trigger: body?.trigger ?? { startedBy: c.get("userId") },
-      triggerKey: runId,
+      // Every press of "Run now" is its own event.
+      triggerKey: deps.newId("manual"),
     });
+    if (!run) throw new Error("A fresh trigger key collided.");
     await audit(workspaceId, c.get("userId"), "workflow.run", wf.id, { runId: run.id });
     return c.json({ run }, 201);
   });
