@@ -84,8 +84,8 @@ Roughly in milestone order:
 1. **Connections**: Google OAuth client and Gmail/Drive pieces (Linear and the shared flow are done). Showing which account is connected.
 2. **Organise**: retrieval across sources, commitment extraction (model), evidence UI, saved views.
 3. **Sentence builder**: phrases become controls that edit the definition; progressive disclosure.
-4. **Execute**: event and webhook triggers (manual and scheduled runs work). Run detail and approval buttons in the Activity screen. On Cloudflare, the runner in a Container reaching D1 through the Worker.
-5. **Experience**: onboarding, workspace invites, activity detail, pause/stop/recover UI.
+4. **Execute**: event and webhook triggers (manual and scheduled runs work). On Cloudflare, the runner in a Container reaching D1 through the Worker.
+5. **Experience**: onboarding, workspace invites, editing an automation after it's saved, and turning on only when the apps it needs are connected (the screen blocks this today; the API doesn't yet).
 6. **Portability**: a standalone CLI that imports an export and runs it.
 7. **Model adapters**: concrete providers behind `ModelProvider`.
 

@@ -1,12 +1,40 @@
 import type { Hono } from "hono";
 import { z } from "zod";
-import { and, asc, eq, schema } from "@tappet/db";
+import { and, asc, desc, eq, inArray, schema } from "@tappet/db";
 import { decideApproval, type RunState } from "@tappet/workflow";
 import type { AppDeps, AppEnv } from "./app.js";
 import { ACTIVE_STATUSES, startWorkflowRun } from "./runner/runs.js";
 
 // Starting runs by hand, watching them, and answering approvals. The runner
 // does the work; these routes only change what's stored.
+
+type RunRow = typeof schema.runs.$inferSelect;
+type EventRow = typeof schema.runEvents.$inferSelect;
+
+function summarise(run: RunRow) {
+  return {
+    id: run.id,
+    workflowId: run.workflowId,
+    workflowVersion: run.workflowVersion,
+    status: run.status,
+    error: run.error,
+    wakeAt: run.wakeAt,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+  };
+}
+
+/** Each approval the run is waiting on, with the question it asked. */
+function pendingApprovals(run: RunRow, events: EventRow[]) {
+  return Object.entries((run.state as RunState).journal)
+    .filter(([, e]) => e.type === "approval" && e.status === "pending")
+    .map(([path]) => ({
+      path,
+      message:
+        events.find((e) => e.type === "approval.requested" && e.path === path)?.message ??
+        "Approve this step?",
+    }));
+}
 
 const RunNowBody = z.object({ trigger: z.unknown().optional() }).optional();
 const ApprovalBody = z.object({
@@ -64,30 +92,63 @@ export function registerRunRoutes(
     return c.json({ runId, status: "running" }, 202);
   });
 
+  /** Recent runs, newest first, with any question a run is waiting on. */
+  app.get("/runs", async (c) => {
+    const workspaceId = c.get("workspaceId");
+    const workflowId = c.req.query("workflowId");
+    const limit = Math.min(Number(c.req.query("limit")) || 30, 100);
+    const rows = await db
+      .select({ run: schema.runs, workflowName: schema.workflows.name })
+      .from(schema.runs)
+      .innerJoin(schema.workflows, eq(schema.workflows.id, schema.runs.workflowId))
+      .where(
+        workflowId
+          ? and(eq(schema.runs.workspaceId, workspaceId), eq(schema.runs.workflowId, workflowId))
+          : eq(schema.runs.workspaceId, workspaceId),
+      )
+      .orderBy(desc(schema.runs.startedAt))
+      .limit(limit);
+
+    const waiting = rows.filter((r) => r.run.status === "awaiting_approval").map((r) => r.run.id);
+    const questions = waiting.length
+      ? await db
+          .select()
+          .from(schema.runEvents)
+          .where(
+            and(
+              inArray(schema.runEvents.runId, waiting),
+              eq(schema.runEvents.type, "approval.requested"),
+            ),
+          )
+      : [];
+
+    return c.json({
+      runs: rows.map(({ run, workflowName }) => ({
+        ...summarise(run),
+        workflowName,
+        pendingApprovals: pendingApprovals(
+          run,
+          questions.filter((q) => q.runId === run.id),
+        ),
+      })),
+    });
+  });
+
   app.get("/runs/:id", async (c) => {
     const run = await findRun(c.get("workspaceId"), c.req.param("id"));
     if (!run) return c.json({ error: "Not found." }, 404);
+    const [workflow] = await db
+      .select({ name: schema.workflows.name })
+      .from(schema.workflows)
+      .where(eq(schema.workflows.id, run.workflowId));
     const events = await db
       .select()
       .from(schema.runEvents)
       .where(eq(schema.runEvents.runId, run.id))
       .orderBy(asc(schema.runEvents.id));
-    const journal = (run.state as RunState).journal;
-    const pendingApprovals = Object.entries(journal)
-      .filter(([, e]) => e.type === "approval" && e.status === "pending")
-      .map(([path]) => path);
     return c.json({
-      run: {
-        id: run.id,
-        workflowId: run.workflowId,
-        workflowVersion: run.workflowVersion,
-        status: run.status,
-        error: run.error,
-        wakeAt: run.wakeAt,
-        startedAt: run.startedAt,
-        finishedAt: run.finishedAt,
-      },
-      pendingApprovals,
+      run: { ...summarise(run), workflowName: workflow?.name },
+      pendingApprovals: pendingApprovals(run, events),
       events,
     });
   });
@@ -114,6 +175,19 @@ export function registerRunRoutes(
       .where(and(eq(schema.runs.id, run.id), eq(schema.runs.status, "awaiting_approval")))
       .returning({ id: schema.runs.id });
     if (!updated.length) return c.json({ error: "Someone else already answered." }, 409);
+    const [who] = await db
+      .select({ name: schema.users.name, email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, c.get("userId")));
+    const by = who?.name ?? who?.email;
+    await db.insert(schema.runEvents).values({
+      runId: run.id,
+      workspaceId,
+      at: deps.now().toISOString(),
+      path: body.path,
+      type: `approval.${body.decision}`,
+      message: `${body.decision === "approved" ? "Approved" : "Declined"}${by ? ` by ${by}` : ""}.`,
+    });
     await audit(workspaceId, c.get("userId"), `run.${body.decision}`, run.id, { path: body.path });
     return c.json({ id: run.id, status: "running" });
   });
