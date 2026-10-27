@@ -271,7 +271,7 @@ describe("sign up → connect Linear → turn on → run", () => {
     expect(await deps.db.select().from(schema.runs)).toHaveLength(0);
   });
 
-  it("won't run automations that start by themselves", async () => {
+  it("won't run by hand automations that wait for an event", async () => {
     const token = "good-sam";
     const { state, cookie } = await connectLinear(token);
     await app.request(`/api/connections/linear/callback?code=abc&state=${state}`, {
@@ -279,7 +279,7 @@ describe("sign up → connect Linear → turn on → run", () => {
     });
     const def = {
       ...examples.linearTaskExample,
-      trigger: { kind: "schedule", cron: "0 9 * * *", timezone: "UTC" },
+      trigger: { kind: "event", connector: "linear", event: "issueCreated" },
     };
     const created = await (
       await app.request("/api/workflows", as(token, "POST", { definition: def }))

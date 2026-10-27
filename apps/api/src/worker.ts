@@ -1,5 +1,6 @@
 import { createD1Db } from "@tappet/db/d1";
 import { createApp, createServices } from "./app.js";
+import { tick } from "./runs.js";
 import { baseDeps, type ServerEnv } from "./setup.js";
 
 // Managed (Cloudflare) entry point. Static assets are served by Workers
@@ -15,9 +16,9 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  /** Cron Trigger: carry on runs whose wait or retry is over. */
+  /** Cron Trigger: start scheduled runs and carry on waiting ones. */
   async scheduled(_controller: ScheduledController, env: WorkerEnv) {
     const db = createD1Db(env.DB);
-    await createServices(baseDeps(db, env)).runs.advanceDue();
+    await tick(createServices(baseDeps(db, env)).runs);
   },
 } satisfies ExportedHandler<WorkerEnv>;

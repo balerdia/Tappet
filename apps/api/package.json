@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "TAPPET_DEV_AUTH=${TAPPET_DEV_AUTH:-auto} DATABASE_PATH=../../data/tappet.sqlite tsx watch src/node.ts",
+    "dev": "TAPPET_DEV_AUTH=${TAPPET_DEV_AUTH:-auto} DATABASE_PATH=../../data/tappet.sqlite tsx watch --env-file-if-exists=../../.env src/node.ts",
     "start": "tsx src/node.ts",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",

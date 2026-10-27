@@ -29,16 +29,19 @@ Needs Node 22+ and pnpm 10.
 
 ```sh
 pnpm install
-pnpm dev          # API on :8787 (dev sign-in) and web on :5173
+cp .env.example .env   # optional: fill in for real sign-in and Linear
+pnpm dev               # API on :8787, web on http://localhost:5173
 pnpm test
 pnpm typecheck
 ```
+
+Open http://localhost:5173. With an empty `.env` you're signed in as a development user and can try everything except connecting apps. With the Clerk keys filled in you get the real sign-up page; add `CREDENTIALS_KEY` and the Linear keys to connect Linear.
 
 The dev server uses a local SQLite file in `data/`. Without Clerk keys it signs everyone in as a built-in development user.
 
 ### Configuration
 
-All optional. Each one switches a feature on.
+All optional. Each one switches a feature on. `pnpm dev` reads them from `.env` at the repo root (see `.env.example`); variables already set in your shell win.
 
 | Variable                     | Used by | What it does                                                                                     |
 | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------ |

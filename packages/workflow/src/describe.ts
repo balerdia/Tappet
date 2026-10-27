@@ -102,7 +102,7 @@ function describeTrigger(trigger: Trigger, catalog?: Catalog): string {
       return trigger.filter ? `${base}, and ${describeCondition(trigger.filter)}` : base;
     }
     case "schedule":
-      return describeCron(trigger.cron);
+      return `${describeCron(trigger.cron)} (${trigger.timezone} time)`;
     case "webhook":
       return "a message arrives at this automation's web address";
     case "manual":

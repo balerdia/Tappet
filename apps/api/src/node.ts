@@ -5,6 +5,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createNodeDb } from "@tappet/db/node";
 import { createApp, createServices } from "./app.js";
+import { tick } from "./runs.js";
 import { baseDeps, seedDevWorkspace } from "./setup.js";
 
 // Self-hosted entry point: Node directly, or inside Docker.
@@ -24,13 +25,13 @@ const services = createServices(deps);
 const server = new Hono();
 server.route("/", createApp(deps, services));
 
-// Carry on runs whose wait or retry is over. One tick at a time.
+// Start scheduled runs and carry on waiting ones. One tick at a time.
 let ticking = false;
 setInterval(async () => {
   if (ticking) return;
   ticking = true;
   try {
-    await services.runs.advanceDue();
+    await tick(services.runs);
   } catch (err) {
     console.error("Run tick failed:", err);
   } finally {
