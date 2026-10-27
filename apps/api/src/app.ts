@@ -13,7 +13,8 @@ import {
 } from "@tappet/workflow";
 import { bearerToken, findOrCreateAccount, type Authenticator } from "./auth.js";
 import { createCredentialStore } from "./credentials.js";
-import { createRunHost } from "./runs.js";
+import { registerRunRoutes } from "./run-routes.js";
+import { ACTIVE_STATUSES, createRunHost } from "./runs.js";
 
 export type AppDeps = {
   db: Database;
@@ -62,7 +63,7 @@ export function createServices(deps: AppDeps) {
 const OAUTH_COOKIE = "tappet_oauth";
 const OAUTH_TTL_MS = 10 * 60_000;
 
-type Env = { Variables: { userId: string; workspaceId: string } };
+export type AppEnv = { Variables: { userId: string; workspaceId: string } };
 
 const DefinitionBody = z.object({ definition: z.unknown() });
 const RunBody = z.object({ trigger: z.unknown().optional() }).optional();
@@ -70,7 +71,7 @@ const RunBody = z.object({ trigger: z.unknown().optional() }).optional();
 export function createApp(deps: AppDeps, services = createServices(deps)) {
   const { db } = deps;
   const { credentials, runs } = services;
-  const app = new Hono<Env>().basePath("/api");
+  const app = new Hono<AppEnv>().basePath("/api");
 
   const appUrl = (requestUrl: string) => deps.appUrl ?? new URL(requestUrl).origin;
   const runtimeFor = (id: string) => deps.runtimes.find((r) => r.manifest.id === id);
@@ -364,7 +365,7 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
         latestVersion: version,
         // A running workflow keeps running its approved version.
         status:
-          wf.status === "running" || wf.status === "paused"
+          ACTIVE_STATUSES.has(wf.status) || wf.status === "paused"
             ? wf.status
             : result.ok
               ? "needs_review"
@@ -411,7 +412,13 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
       );
     await db
       .update(schema.workflows)
-      .set({ status: "running", activeVersion: wf.latestVersion, updatedAt: at })
+      // Schedules count from now, so turning on never fires a slot from the past.
+      .set({
+        status: "running",
+        activeVersion: wf.latestVersion,
+        updatedAt: at,
+        lastScheduledAt: at,
+      })
       .where(eq(schema.workflows.id, wf.id));
     await audit(c.get("workspaceId"), c.get("userId"), "workflow.activated", wf.id, {
       version: wf.latestVersion,
@@ -422,8 +429,8 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
   app.post("/workflows/:id/pause", async (c) => {
     const wf = await findWorkflow(c.get("workspaceId"), c.req.param("id"));
     if (!wf) return c.json({ error: "Not found." }, 404);
-    if (wf.status !== "running")
-      return c.json({ error: "Only running automations can be paused." }, 409);
+    if (!ACTIVE_STATUSES.has(wf.status))
+      return c.json({ error: "Only automations that are on can be paused." }, 409);
     await db
       .update(schema.workflows)
       .set({ status: "paused", updatedAt: deps.now().toISOString() })
@@ -462,7 +469,7 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
     const workspaceId = c.get("workspaceId");
     const wf = await findWorkflow(workspaceId, c.req.param("id"));
     if (!wf) return c.json({ error: "Not found." }, 404);
-    if (wf.status !== "running" || !wf.activeVersion)
+    if (!ACTIVE_STATUSES.has(wf.status) || !wf.activeVersion)
       return c.json({ error: "Turn this automation on before running it." }, 409);
     const version = await findVersion(wf.id, wf.activeVersion);
     const def = version?.definition as WorkflowDefinition | undefined;
@@ -484,6 +491,7 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
       trigger: body?.trigger ?? { startedBy: c.get("userId") },
       triggerKey: runId,
     });
+    if (!run) return c.json({ error: "That run has already started." }, 409);
     await audit(workspaceId, c.get("userId"), "workflow.run", wf.id, { runId: run.id });
     return c.json({ run }, 201);
   });
@@ -505,6 +513,8 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
       .limit(20);
     return c.json({ runs: rows });
   });
+
+  registerRunRoutes(app, deps, runs, audit);
 
   // ---------- Activity ----------
 

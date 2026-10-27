@@ -34,6 +34,8 @@ export type ActionHandler = (
 export type RunnerDeps = {
   resolveAction(connector: string, action: string): ActionHandler | undefined;
   now(): Date;
+  /** Plain words for an action in run history, e.g. "send an email". */
+  describeAction?(connector: string, action: string): string | undefined;
 };
 
 export type JournalEntry =
@@ -194,14 +196,16 @@ export async function advance(
           approval(`${path}:approval`, `Approve "${step.action}" in ${step.connector}?`);
         }
 
+        const what =
+          deps.describeAction?.(step.connector, step.action) ??
+          `${step.action} in ${step.connector}`;
         const handler = deps.resolveAction(step.connector, step.action);
         if (!handler) {
           throw new Fail(
             path,
-            `${step.connector} can't "${step.action}" right now. Check the connection.`,
+            `Couldn't ${what}. Check the app is connected on the Connections screen.`,
           );
         }
-
         const resolvedInput = Object.fromEntries(
           Object.entries(step.input).map(([k, v]) => [k, resolveValue(scope, v)]),
         );
@@ -216,7 +220,7 @@ export async function advance(
           });
           state.journal[path] = { type: "action", status: "succeeded", attempts, output };
           scope.steps[step.id] = output;
-          emit(path, "action.succeeded", `${step.action} in ${step.connector} finished.`);
+          emit(path, "action.succeeded", `Done: ${what}.`);
         } catch (err) {
           const error = err instanceof Error ? err.message : String(err);
           if (attempts < policy.maxAttempts) {
@@ -226,12 +230,18 @@ export async function advance(
             emit(
               path,
               "action.retry_scheduled",
-              `Attempt ${attempts} failed: ${error}. Trying again at ${retryAt}.`,
+              `Couldn't ${what} (${error}). Trying again shortly.`,
             );
             throw new Suspend({ status: "waiting", wakeAt: retryAt });
           }
           state.journal[path] = { type: "action", status: "failed", attempts, error };
-          emit(path, "action.failed", `Gave up after ${attempts} attempts: ${error}`);
+          emit(
+            path,
+            "action.failed",
+            attempts > 1
+              ? `Couldn't ${what} after ${attempts} tries: ${error}`
+              : `Couldn't ${what}: ${error}`,
+          );
           throw new Fail(path, error);
         }
         return;

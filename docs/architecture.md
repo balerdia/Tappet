@@ -55,7 +55,13 @@ Each action gets an idempotency key (`runId:path`) that's stable across retries.
 
 `POST /api/connections/:connector/start` returns the provider's sign-in address; the callback exchanges the code, encrypts the tokens and stores one connection per app per workspace. Tokens close to expiry are refreshed before each run (`apps/api/src/credentials.ts`); a failed refresh marks the connection `needs_reauth`.
 
-`POST /api/workflows/:id/runs` starts a run of the approved version for automations with a `manual` trigger. `apps/api/src/runs.ts` loads credentials, calls `advance`, saves the run and writes `run_events` for Activity. Waiting runs (delays, retries) are picked up by a 30-second timer on Node and a one-minute Cron Trigger on Cloudflare.
+`POST /api/workflows/:id/runs` starts a run of the approved version for automations with a `manual` trigger. `apps/api/src/runs.ts` loads credentials, calls `advance`, saves the run and writes `run_events` for Activity.
+
+The runner's `tick` does two things. It starts scheduled automations whose time has come (cron in the workflow's time zone, via croner; only the latest missed slot fires after downtime, and turning on never fires a slot from before), then carries on every run that's new or whose wait or retry is over. It runs every 15 seconds on Node (`RUNNER_INTERVAL_MS`; `RUNNER=0` turns it off) and every minute from the Cron Trigger on Cloudflare.
+
+All run state is in the database, so several hosts can tick at once. Before touching a run, a host claims it by setting `runs.lease_until` in a conditional update; anyone else skips it until the lease ends. A run that fails marks its automation "Needs attention" but leaves it on. A paused automation's runs stay where they are until it's turned on again.
+
+Approvals: `GET /api/runs` and `GET /api/runs/:id` list what each run is waiting on, and `POST /api/runs/:id/approvals` records a yes or no (only once) and carries the run on straight away. Activity shows these under "Needs you".
 
 ## Not built yet
 
@@ -64,7 +70,7 @@ Roughly in milestone order:
 1. **Connections**: Google OAuth and the Gmail/Drive runtimes. (Linear, credential storage and refresh are done.)
 2. **Organise**: retrieval across sources, commitment extraction (model), evidence UI, saved views.
 3. **Sentence builder**: phrases become controls that edit the definition; progressive disclosure.
-4. **Execute**: start runs from event, schedule and webhook triggers (with `runs.trigger_key` dedupe). Manual runs and resuming due runs are done.
+4. **Execute**: start runs from event and webhook triggers (with `runs.trigger_key` dedupe). Manual runs, schedules, approvals and resuming due runs are done.
 5. **Experience**: onboarding, activity detail, stop/recover UI, approving pending steps. (Sign-in is done.)
 6. **Portability**: a standalone CLI that imports an export and runs it.
 7. **Model adapters**: concrete providers behind `ModelProvider`.
