@@ -65,3 +65,27 @@ export type ConnectorRuntime = {
   search?: (query: string, ctx: ConnectorContext) => Promise<SourceRecord[]>;
   read?: (id: string, ctx: ConnectorContext) => Promise<SourceRecord | undefined>;
 };
+
+/** What a stored OAuth connection holds. Encrypted at rest as JSON. */
+export type OAuthTokens = {
+  accessToken: string;
+  refreshToken?: string;
+  /** ISO time the access token stops working. Absent for long-lived tokens. */
+  expiresAt?: string;
+  scopes: string[];
+};
+
+/**
+ * The provider side of connecting an app. Hosts own storage, cookies and
+ * redirects; this only knows how to talk to the provider.
+ */
+export type OAuthClient = {
+  authorizeUrl(state: string, redirectUri: string): string;
+  exchangeCode(code: string, redirectUri: string): Promise<OAuthTokens>;
+  /** Present when the provider issues refresh tokens. */
+  refresh?(refreshToken: string): Promise<OAuthTokens>;
+  /** A readable label for the connection, such as the workspace name. */
+  describe(accessToken: string): Promise<string>;
+  /** Best effort. Disconnecting still succeeds locally if this fails. */
+  revoke?(accessToken: string): Promise<void>;
+};

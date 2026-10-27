@@ -4,14 +4,14 @@ This maps the PRD's five components onto the code, notes the decisions made in t
 
 ## Components
 
-| PRD component      | Where                   | State                                                                  |
-| ------------------ | ----------------------- | ---------------------------------------------------------------------- |
-| Application        | `apps/web`, `apps/api`  | Five screens as stubs. API for workflows, connectors, activity, export |
-| Integration layer  | `packages/connectors`   | Manifests for Gmail, Drive, Linear, HTTP, webhooks. HTTP action works  |
-| Information layer  | `packages/information`  | Finding/evidence/certainty types. Commitment-vs-task coverage check    |
-| Automation engine  | `packages/workflow`     | Schema, validation, sentences and a working replay-based runner        |
-| Intelligence layer | `packages/intelligence` | Model interface, request → draft workflow, untrusted-content wrapper   |
-| Storage            | `packages/db`           | Drizzle schema + first migration. SQLite (Node/Docker) and D1          |
+| PRD component      | Where                   | State                                                                    |
+| ------------------ | ----------------------- | ------------------------------------------------------------------------ |
+| Application        | `apps/web`, `apps/api`  | Five screens as stubs. API for workflows, connectors, activity, export   |
+| Integration layer  | `packages/connectors`   | Manifests for Gmail, Drive, Linear, HTTP, webhooks. HTTP and Linear work |
+| Information layer  | `packages/information`  | Finding/evidence/certainty types. Commitment-vs-task coverage check      |
+| Automation engine  | `packages/workflow`     | Schema, validation, sentences and a working replay-based runner          |
+| Intelligence layer | `packages/intelligence` | Model interface, request → draft workflow, untrusted-content wrapper     |
+| Storage            | `packages/db`           | Drizzle schema + first migration. SQLite (Node/Docker) and D1            |
 
 ## Workflow definitions
 
@@ -46,22 +46,30 @@ Each action gets an idempotency key (`runId:path`) that's stable across retries.
 - Credentials are encrypted with AES-GCM (`apps/api/src/secrets.ts`); the key lives in the environment, never the database. The API never returns them.
 - Organise is read-only toward source systems. Changes go through Automate, which requires approval.
 - Content from sources is wrapped with `untrusted()` before it reaches a model. Model output is only ever a draft that must validate and be approved.
-- Dev sign-in (`TAPPET_DEV_AUTH=1`) is for local work only. Without it, every API route except `/api/health` returns 401.
+- Sign-in is Clerk. The web app sends the session token as a bearer token; the API verifies it with `@clerk/backend` and creates the user, workspace and membership on first sight (`apps/api/src/auth.ts`). The workspace id is derived from the user id so racing first requests can't create two.
+- Dev sign-in (`TAPPET_DEV_AUTH=1`) is for local work only. Without it, every API route except `/api/health` and OAuth callbacks needs a valid Clerk token.
+- OAuth callbacks carry no sign-in token, so they're trusted only when the `state` matches a single-use row in `oauth_states` (10 minute expiry) and the `tappet_oauth` cookie set in the same browser when the flow started.
+- Turning an automation on is refused (status `needs_connection`) while any app it uses isn't connected or has no runtime yet.
+
+## Connections and runs
+
+`POST /api/connections/:connector/start` returns the provider's sign-in address; the callback exchanges the code, encrypts the tokens and stores one connection per app per workspace. Tokens close to expiry are refreshed before each run (`apps/api/src/credentials.ts`); a failed refresh marks the connection `needs_reauth`.
+
+`POST /api/workflows/:id/runs` starts a run of the approved version for automations with a `manual` trigger. `apps/api/src/runs.ts` loads credentials, calls `advance`, saves the run and writes `run_events` for Activity. Waiting runs (delays, retries) are picked up by a 30-second timer on Node and a one-minute Cron Trigger on Cloudflare.
 
 ## Not built yet
 
 Roughly in milestone order:
 
-1. **Connections**: OAuth flows (Google, Linear), credential storage, token refresh, Gmail/Drive/Linear runtimes.
+1. **Connections**: Google OAuth and the Gmail/Drive runtimes. (Linear, credential storage and refresh are done.)
 2. **Organise**: retrieval across sources, commitment extraction (model), evidence UI, saved views.
 3. **Sentence builder**: phrases become controls that edit the definition; progressive disclosure.
-4. **Execute**: host loop that starts runs from triggers (with `runs.trigger_key` dedupe), advances due runs, and writes `run_events`. Schedules via Cron Triggers on Cloudflare and a timer on Node.
-5. **Experience**: real sign-in, onboarding, activity detail, pause/stop/recover UI.
+4. **Execute**: start runs from event, schedule and webhook triggers (with `runs.trigger_key` dedupe). Manual runs and resuming due runs are done.
+5. **Experience**: onboarding, activity detail, stop/recover UI, approving pending steps. (Sign-in is done.)
 6. **Portability**: a standalone CLI that imports an export and runs it.
 7. **Model adapters**: concrete providers behind `ModelProvider`.
 
 ## Open questions
 
 - Licence split (AGPLv3 core / FSL app) pending legal review. Everything is MIT for now.
-- Sign-in provider (own auth vs. a hosted service).
 - How approval at activation relates to per-run approval for sensitive actions. Today: actions marked `sensitive` need a per-run approval; everything else is covered by approving the workflow.

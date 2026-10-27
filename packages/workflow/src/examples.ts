@@ -108,3 +108,24 @@ export const advancedExample: WorkflowDefinition = {
     },
   ],
 };
+
+/** The smallest useful Linear automation. Started by hand with "Run now". */
+export const linearTaskExample: WorkflowDefinition = {
+  schemaVersion: 1,
+  id: "wf_linear_task",
+  version: 1,
+  name: "Add a task to Linear",
+  trigger: { kind: "manual" },
+  steps: [
+    {
+      kind: "action",
+      id: "createTask",
+      connector: "linear",
+      action: "createIssue",
+      input: {
+        title: { literal: "Follow up with new customers" },
+        description: { literal: "Created by Tappet." },
+      },
+    },
+  ],
+};

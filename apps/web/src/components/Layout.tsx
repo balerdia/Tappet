@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router";
+import { AccountButton } from "../auth";
 
 const NAV = [
   { to: "/", label: "Home", end: true },
@@ -29,6 +30,7 @@ export function Layout() {
           <NavLink to="/settings" className={linkClass}>
             Settings
           </NavLink>
+          <AccountButton />
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8">

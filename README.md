@@ -34,7 +34,23 @@ pnpm test
 pnpm typecheck
 ```
 
-The dev server uses a local SQLite file in `data/` and a built-in development user. There is no real sign-in yet.
+The dev server uses a local SQLite file in `data/`. Without Clerk keys it signs everyone in as a built-in development user.
+
+### Configuration
+
+All optional. Each one switches a feature on.
+
+| Variable                     | Used by | What it does                                                                                     |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `CLERK_SECRET_KEY`           | API     | Real sign-in with Clerk. The first signed-in request creates the person's account and workspace. |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Web     | Shows Clerk's sign-in and sign-up pages. Set both Clerk keys or neither.                         |
+| `CREDENTIALS_KEY`            | API     | 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts stored app tokens.                 |
+| `LINEAR_CLIENT_ID`           | API     | Linear OAuth app. Needs `CREDENTIALS_KEY` too.                                                   |
+| `LINEAR_CLIENT_SECRET`       | API     |                                                                                                  |
+| `APP_URL`                    | API     | Public address of the web app, e.g. `https://app.example.com`. Defaults to the request origin.   |
+| `TAPPET_DEV_AUTH`            | API     | `1` forces dev sign-in, `0` turns it off. `pnpm dev` uses `auto`: on unless Clerk is set.        |
+
+In your Linear OAuth app, add `<APP_URL>/api/connections/linear/callback` as a callback URL. For local work that's `http://localhost:5173/api/connections/linear/callback`.
 
 ### Docker (self-hosted)
 
@@ -50,6 +66,7 @@ pnpm --filter @tappet/web build
 cd apps/api
 wrangler d1 create tappet                   # put the id in wrangler.toml
 wrangler d1 migrations apply tappet --local
+wrangler secret put CLERK_SECRET_KEY        # and CREDENTIALS_KEY, LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET
 pnpm dev:worker
 ```
 
