@@ -66,6 +66,10 @@ To let people connect apps, set:
 
 Register `APP_URL` + `/connections/callback` (e.g. `http://localhost:5173/connections/callback`) as the redirect address with each app. Apps without credentials show as "Coming soon".
 
+### Runner
+
+The runner starts scheduled workflows and carries runs forward. The Node server runs it built in, checking every 15 seconds (`RUNNER_INTERVAL_MS` to change). To run it as its own process instead, start the server with `RUNNER=0` and run `pnpm --filter @tappet/api runner` alongside it, pointing both at the same `DATABASE_PATH`.
+
 ### Docker (self-hosted)
 
 ```sh

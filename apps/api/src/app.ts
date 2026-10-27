@@ -5,6 +5,8 @@ import type { ConnectorManifest } from "@tappet/connectors";
 import { resolveMember, type Authenticator } from "./auth.js";
 import { registerConnectionRoutes } from "./connections.js";
 import type { ConnectConfig } from "./credentials.js";
+import { registerRunRoutes } from "./run-routes.js";
+import { ACTIVE_STATUSES } from "./runner/runs.js";
 import {
   describeWorkflow,
   validateWorkflow,
@@ -87,6 +89,10 @@ export function createApp(deps: AppDeps) {
   // ---------- Connections ----------
 
   registerConnectionRoutes(app, deps, audit);
+
+  // ---------- Runs ----------
+
+  registerRunRoutes(app, deps, audit);
 
   // ---------- Workflows ----------
 
@@ -191,7 +197,13 @@ export function createApp(deps: AppDeps) {
       );
     await db
       .update(schema.workflows)
-      .set({ status: "running", activeVersion: wf.latestVersion, updatedAt: at })
+      // Scheduling starts from now: approving never fires missed past slots.
+      .set({
+        status: "running",
+        activeVersion: wf.latestVersion,
+        updatedAt: at,
+        lastScheduledAt: at,
+      })
       .where(eq(schema.workflows.id, wf.id));
     await audit(c.get("workspaceId"), c.get("userId"), "workflow.activated", wf.id, {
       version: wf.latestVersion,
@@ -202,8 +214,9 @@ export function createApp(deps: AppDeps) {
   app.post("/workflows/:id/pause", async (c) => {
     const wf = await findWorkflow(c.get("workspaceId"), c.req.param("id"));
     if (!wf) return c.json({ error: "Not found." }, 404);
-    if (wf.status !== "running")
+    if (!ACTIVE_STATUSES.has(wf.status)) {
       return c.json({ error: "Only running automations can be paused." }, 409);
+    }
     await db
       .update(schema.workflows)
       .set({ status: "paused", updatedAt: deps.now().toISOString() })

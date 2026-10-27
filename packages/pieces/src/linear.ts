@@ -1,3 +1,4 @@
+/// <reference path="./activepieces.d.ts" />
 import { linear as manifest } from "@tappet/connectors";
 import { pieceRuntime } from "./piece.js";
 

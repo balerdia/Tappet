@@ -92,6 +92,8 @@ export const workflows = sqliteTable(
     /** The version that runs. Null until something is approved. */
     activeVersion: integer("active_version"),
     latestVersion: integer("latest_version").notNull(),
+    /** The last scheduled time a run was started for, so a slot never fires twice. */
+    lastScheduledAt: text("last_scheduled_at"),
     createdAt: createdAt(),
     updatedAt: createdAt(),
   },
@@ -133,6 +135,8 @@ export const runs = sqliteTable(
     /** Identifies the triggering event so the same event can't start two runs. */
     triggerKey: text("trigger_key").notNull(),
     wakeAt: text("wake_at"),
+    /** Set while a runner is working on this run, so no other runner picks it up. */
+    leaseUntil: text("lease_until"),
     error: text("error"),
     startedAt: createdAt(),
     finishedAt: text("finished_at"),

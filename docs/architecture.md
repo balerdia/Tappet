@@ -42,6 +42,21 @@ Why replay: it keeps the runner pure and portable. It needs no long-lived proces
 
 Each action gets an idempotency key (`runId:path`) that's stable across retries. That prevents duplicates only where the external API honours it, so we shouldn't claim exactly-once delivery in general.
 
+### The runner service
+
+`apps/api/src/runner/` hosts the runner. Every tick (15 seconds by default):
+
+1. **Scheduled workflows.** For each running workflow with a schedule, find the latest slot between `lastScheduledAt` and now (in the workflow's time zone, using `croner`) and start one run for it. The run's trigger key is `schedule:<slot time>`, and runs are unique per workflow and trigger key, so a slot can never start twice, even with several runners. After downtime only the most recent missed slot fires. Activating a workflow sets `lastScheduledAt` to now, so approval never fires past slots.
+2. **Due runs.** Runs that are new, or waiting with their wake time passed, are claimed with a lease (`runs.lease_until`) before any work happens, so overlapping ticks or runners can't do the same run. Each is advanced with the portable runner, then its state, status, wake time and events are saved and the lease released.
+
+Failures are plain: a failed run marks its workflow "Needs attention" without stopping its schedule, and the reason (for example "Linear isn't connected") appears in Activity. Paused workflows' runs are left where they are. Apps that need signing in get a fresh access token for that workspace's connection when the action runs.
+
+The API adds `POST /api/workflows/:id/run` (run now), `GET /api/runs/:id`, and `POST /api/runs/:id/approvals`. These only change stored state; the runner does the work.
+
+Where it runs: the Node server starts the loop in the same process (set `RUNNER=0` to turn that off), and `pnpm --filter @tappet/api runner` runs it on its own, which is what a Cloudflare Container would run. The Worker never loads the runner, the pieces or the scheduler.
+
+Known gap: if the process dies after an action succeeds but before the run is saved, the action runs again on the next tick (with the same idempotency key).
+
 ## Connecting apps
 
 Decided October 2026, after a spike:
@@ -69,7 +84,7 @@ Roughly in milestone order:
 1. **Connections**: Google OAuth client and Gmail/Drive pieces (Linear and the shared flow are done). Showing which account is connected.
 2. **Organise**: retrieval across sources, commitment extraction (model), evidence UI, saved views.
 3. **Sentence builder**: phrases become controls that edit the definition; progressive disclosure.
-4. **Execute**: the Node runner service that starts runs from triggers (with `runs.trigger_key` dedupe), advances due runs, and writes `run_events`. Woken by Cron Triggers on Cloudflare and a timer on Node.
+4. **Execute**: event and webhook triggers (manual and scheduled runs work). Run detail and approval buttons in the Activity screen. On Cloudflare, the runner in a Container reaching D1 through the Worker.
 5. **Experience**: onboarding, workspace invites, activity detail, pause/stop/recover UI.
 6. **Portability**: a standalone CLI that imports an export and runs it.
 7. **Model adapters**: concrete providers behind `ModelProvider`.

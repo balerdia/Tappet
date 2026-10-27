@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "TAPPET_DEV_AUTH=1 CLERK_AUTHORIZED_PARTIES=http://localhost:5173 DATABASE_PATH=../../data/tappet.sqlite tsx watch src/node.ts",
     "start": "tsx src/node.ts",
+    "runner": "tsx src/runner/main.ts",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json"
@@ -16,7 +17,9 @@
     "@hono/node-server": "^2.1.5",
     "@tappet/connectors": "workspace:*",
     "@tappet/db": "workspace:*",
+    "@tappet/pieces": "workspace:*",
     "@tappet/workflow": "workspace:*",
+    "croner": "11.0.0",
     "hono": "^4.13.14",
     "zod": "^4.6.7"
   },
