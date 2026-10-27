@@ -9,6 +9,7 @@ import { ConnectionCallback } from "./screens/ConnectionCallback";
 import { Connections } from "./screens/Connections";
 import { Home } from "./screens/Home";
 import { Organise } from "./screens/Organise";
+import { RunDetail } from "./screens/RunDetail";
 import { Settings } from "./screens/Settings";
 import "./styles.css";
 
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
       { path: "connections", element: <Connections /> },
       { path: "connections/callback", element: <ConnectionCallback /> },
       { path: "activity", element: <Activity /> },
+      { path: "activity/runs/:id", element: <RunDetail /> },
       { path: "settings", element: <Settings /> },
     ],
   },

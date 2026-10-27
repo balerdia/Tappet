@@ -155,6 +155,9 @@ export async function advanceRun(deps: RunnerDeps, runId: string, now: Date): Pr
     const result = await advance(definition, run.state as RunState, {
       now: () => now,
       resolveAction: actionResolverFor(deps, run.workspaceId, now),
+      describeAction: (connector, action) =>
+        deps.manifests.find((m) => m.id === connector)?.actions.find((a) => a.name === action)
+          ?.phrase,
     });
 
     const finished = result.status === "completed" || result.status === "failed";

@@ -65,6 +65,61 @@ export function StatusBadge({ status }: { status: WorkflowStatus }) {
   );
 }
 
+const BUTTON_TONE = {
+  primary: "bg-accent font-medium text-surface hover:opacity-90",
+  secondary: "border border-line hover:border-accent",
+  quiet: "text-muted hover:text-ink",
+};
+
+export function Button({
+  children,
+  onClick,
+  tone = "secondary",
+  disabled,
+  type = "button",
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  tone?: keyof typeof BUTTON_TONE;
+  disabled?: boolean;
+  type?: "button" | "submit";
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded-lg px-3 py-1.5 text-sm disabled:opacity-50 ${BUTTON_TONE[tone]}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export type RunStatus = "running" | "waiting" | "awaiting_approval" | "completed" | "failed";
+
+const RUN_LABEL: Record<RunStatus, [string, string]> = {
+  running: ["Running", "text-accent border-accent/40 bg-accent-soft"],
+  waiting: ["Waiting", "text-muted border-line"],
+  awaiting_approval: ["Needs your approval", "text-inferred border-inferred/40"],
+  completed: ["Done", "text-muted border-line"],
+  failed: ["Failed", "text-uncertain border-uncertain/40"],
+};
+
+export function RunStatusBadge({ status }: { status: RunStatus }) {
+  const [label, tone] = RUN_LABEL[status];
+  return (
+    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
+export function ErrorText({ children }: { children?: ReactNode }) {
+  if (!children) return null;
+  return <p className="text-sm text-uncertain">{children}</p>;
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return (
     <p className="rounded-xl border border-dashed border-line p-8 text-center text-muted">

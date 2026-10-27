@@ -56,6 +56,30 @@ describe("sign-in", () => {
     expect((await app.request(`/api/workflows/${alice.id}/export`, as("clerk:bob"))).status).toBe(
       404,
     );
+
+    // Nor see, start or answer her runs.
+    await app.request(`/api/workflows/${alice.id}/activate`, as("clerk:alice", { method: "POST" }));
+    const { runId } = await (
+      await app.request(`/api/workflows/${alice.id}/run`, as("clerk:alice", { method: "POST" }))
+    ).json();
+    expect(runId).toBeTruthy();
+    expect((await (await app.request("/api/runs", as("clerk:bob"))).json()).runs).toEqual([]);
+    expect((await app.request(`/api/runs/${runId}`, as("clerk:bob"))).status).toBe(404);
+    expect(
+      (await app.request(`/api/workflows/${alice.id}/run`, as("clerk:bob", { method: "POST" })))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await app.request(
+          `/api/runs/${runId}/approvals`,
+          as("clerk:bob", {
+            method: "POST",
+            body: JSON.stringify({ path: "x", decision: "approved" }),
+          }),
+        )
+      ).status,
+    ).toBe(404);
   });
 
   it("handles two first requests arriving at once", async () => {

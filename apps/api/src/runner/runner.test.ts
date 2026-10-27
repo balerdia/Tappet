@@ -185,7 +185,14 @@ describe("runner", () => {
     await env.tick();
     const waiting = await env.call(`/api/runs/${body.runId}`);
     expect(waiting.body.run.status).toBe("awaiting_approval");
-    expect(waiting.body.pendingApprovals).toEqual(["check"]);
+    expect(waiting.body.pendingApprovals).toEqual([{ path: "check", message: "Send the email?" }]);
+    const listed = await env.call("/api/runs");
+    expect(listed.body.runs[0]).toMatchObject({
+      id: body.runId,
+      status: "awaiting_approval",
+      workflowName: examples.simpleExample.name,
+      pendingApprovals: [{ path: "check", message: "Send the email?" }],
+    });
     expect(gmailFake.sent).toHaveLength(0);
 
     const approved = await env.call(`/api/runs/${body.runId}/approvals`, "POST", {
@@ -204,8 +211,16 @@ describe("runner", () => {
     ).toBe(409);
 
     await env.tick();
-    expect((await env.call(`/api/runs/${body.runId}`)).body.run.status).toBe("completed");
+    const done = await env.call(`/api/runs/${body.runId}`);
+    expect(done.body.run.status).toBe("completed");
     expect(gmailFake.sent).toHaveLength(1);
+    // The history reads in plain words, in the order things happened.
+    expect(done.body.events.map((e: { message: string }) => e.message)).toEqual([
+      "Send the email?",
+      "Approved.",
+      "Done: send an email.",
+      "Finished.",
+    ]);
   });
 
   it("flags the workflow when an app isn't connected", async () => {
