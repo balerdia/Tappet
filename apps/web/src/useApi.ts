@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 
-type State<T> = { data?: T; error?: string; loading: boolean };
+type State<T> = { data?: T; error?: string; loading: boolean; reload: () => void };
 
 export function useApi<T>(path: string): State<T> {
-  const [state, setState] = useState<State<T>>({ loading: true });
+  const [state, setState] = useState<Omit<State<T>, "reload">>({ loading: true });
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
   useEffect(() => {
     let live = true;
     api<T>(path)
@@ -13,6 +15,6 @@ export function useApi<T>(path: string): State<T> {
     return () => {
       live = false;
     };
-  }, [path]);
-  return state;
+  }, [path, version]);
+  return { ...state, reload };
 }

@@ -5,13 +5,14 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "TAPPET_DEV_AUTH=1 DATABASE_PATH=../../data/tappet.sqlite tsx watch src/node.ts",
+    "dev": "TAPPET_DEV_AUTH=${TAPPET_DEV_AUTH:-auto} DATABASE_PATH=../../data/tappet.sqlite tsx watch src/node.ts",
     "start": "tsx src/node.ts",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json"
   },
   "dependencies": {
+    "@clerk/backend": "3.23.2",
     "@hono/node-server": "^2.1.5",
     "@tappet/connectors": "workspace:*",
     "@tappet/db": "workspace:*",

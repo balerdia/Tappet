@@ -4,7 +4,7 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createNodeDb } from "@tappet/db/node";
-import { createApp } from "./app.js";
+import { createApp, createServices } from "./app.js";
 import { baseDeps, seedDevWorkspace } from "./setup.js";
 
 // Self-hosted entry point: Node directly, or inside Docker.
@@ -13,11 +13,30 @@ const dbPath = resolve(process.env.DATABASE_PATH ?? "data/tappet.sqlite");
 mkdirSync(dirname(dbPath), { recursive: true });
 const db = createNodeDb(dbPath);
 
-const devAuth = process.env.TAPPET_DEV_AUTH === "1";
+const deps = baseDeps(db, process.env);
+const devAuth = Boolean(deps.devAuth);
 if (devAuth) await seedDevWorkspace(db);
+if (!devAuth && !deps.auth)
+  console.warn("No CLERK_SECRET_KEY and dev sign-in is off: nobody can sign in.");
+if (!deps.credentialsKey) console.warn("No CREDENTIALS_KEY: apps can't be connected.");
 
+const services = createServices(deps);
 const server = new Hono();
-server.route("/", createApp(baseDeps(db, devAuth)));
+server.route("/", createApp(deps, services));
+
+// Carry on runs whose wait or retry is over. One tick at a time.
+let ticking = false;
+setInterval(async () => {
+  if (ticking) return;
+  ticking = true;
+  try {
+    await services.runs.advanceDue();
+  } catch (err) {
+    console.error("Run tick failed:", err);
+  } finally {
+    ticking = false;
+  }
+}, 30_000).unref();
 
 // Serve the built web app when it's there (Docker image, production builds).
 const webDist = process.env.WEB_DIST ?? resolve(import.meta.dirname, "../../web/dist");
@@ -28,5 +47,7 @@ if (existsSync(webDist)) {
 
 const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: server.fetch, port }, () => {
-  console.log(`Tappet API on http://localhost:${port}${devAuth ? " (dev sign-in)" : ""}`);
+  console.log(
+    `Tappet API on http://localhost:${port}${devAuth ? " (dev sign-in)" : " (Clerk sign-in)"}`,
+  );
 });

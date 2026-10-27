@@ -17,3 +17,9 @@ migrations_dir = "../../packages/db/migrations"
 
 [vars]
 TAPPET_DEV_AUTH = "0"
+# Secrets, set with `wrangler secret put <NAME>`:
+#   CLERK_SECRET_KEY, CREDENTIALS_KEY, LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET
+# and APP_URL (your public address) as a var or secret.
+
+[triggers]
+crons = ["* * * * *"]

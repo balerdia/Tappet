@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
+import { AuthRoot, RequireSignIn, SignInPage, SignUpPage } from "./auth";
 import { Layout } from "./components/Layout";
 import { Activity } from "./screens/Activity";
 import { Automate } from "./screens/Automate";
@@ -12,15 +13,26 @@ import "./styles.css";
 
 const router = createBrowserRouter([
   {
-    path: "/",
-    element: <Layout />,
+    element: <AuthRoot />,
     children: [
-      { index: true, element: <Home /> },
-      { path: "organise", element: <Organise /> },
-      { path: "automate", element: <Automate /> },
-      { path: "connections", element: <Connections /> },
-      { path: "activity", element: <Activity /> },
-      { path: "settings", element: <Settings /> },
+      { path: "sign-in/*", element: <SignInPage /> },
+      { path: "sign-up/*", element: <SignUpPage /> },
+      {
+        path: "/",
+        element: (
+          <RequireSignIn>
+            <Layout />
+          </RequireSignIn>
+        ),
+        children: [
+          { index: true, element: <Home /> },
+          { path: "organise", element: <Organise /> },
+          { path: "automate", element: <Automate /> },
+          { path: "connections", element: <Connections /> },
+          { path: "activity", element: <Activity /> },
+          { path: "settings", element: <Settings /> },
+        ],
+      },
     ],
   },
 ]);

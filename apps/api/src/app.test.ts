@@ -11,7 +11,7 @@ describe("api", () => {
   beforeEach(async () => {
     const db = createNodeDb(":memory:");
     await seedDevWorkspace(db);
-    app = createApp(baseDeps(db, true));
+    app = createApp(baseDeps(db, { TAPPET_DEV_AUTH: "1" }));
   });
 
   const json = (method: string, body?: unknown) => ({
@@ -21,7 +21,7 @@ describe("api", () => {
   });
 
   it("requires sign-in when dev auth is off", async () => {
-    const locked = createApp(baseDeps(createNodeDb(":memory:"), false));
+    const locked = createApp(baseDeps(createNodeDb(":memory:")));
     expect((await locked.request("/api/health")).status).toBe(200);
     expect((await locked.request("/api/workflows")).status).toBe(401);
   });
@@ -39,16 +39,30 @@ describe("api", () => {
     });
   });
 
+  // Needs no connection: an incoming web address that forwards to another one.
+  const forward = {
+    ...examples.simpleExample,
+    steps: [
+      {
+        kind: "action",
+        id: "forward",
+        connector: "http",
+        action: "request",
+        input: { method: { literal: "POST" }, url: { literal: "https://example.com/hook" } },
+      },
+    ],
+  };
+
   it("creates, edits, approves, pauses and exports a workflow", async () => {
     const created = await (
-      await app.request("/api/workflows", json("POST", { definition: examples.simpleExample }))
+      await app.request("/api/workflows", json("POST", { definition: forward }))
     ).json();
     expect(created.status).toBe("needs_review");
 
     const edited = await (
       await app.request(
         `/api/workflows/${created.id}`,
-        json("PUT", { definition: { ...examples.simpleExample, name: "Renamed" } }),
+        json("PUT", { definition: { ...forward, name: "Renamed" } }),
       )
     ).json();
     expect(edited.version).toBe(2);
@@ -64,6 +78,18 @@ describe("api", () => {
     const exported = await (await app.request(`/api/workflows/${created.id}/export`)).json();
     expect(exported.versions).toHaveLength(2);
     expect(exported.versions[1].definition).toMatchObject({ id: created.id, version: 2 });
+  });
+
+  it("won't activate a workflow whose apps aren't connected", async () => {
+    const created = await (
+      await app.request("/api/workflows", json("POST", { definition: examples.simpleExample }))
+    ).json();
+    const res = await app.request(`/api/workflows/${created.id}/activate`, json("POST"));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      status: "needs_connection",
+      missing: [{ connector: "gmail" }],
+    });
   });
 
   it("won't activate a workflow with problems", async () => {

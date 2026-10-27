@@ -26,6 +26,8 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name"),
+  /** The sign-in provider's id for this person (Clerk's `sub`). Null for the dev user. */
+  authSubject: text("auth_subject").unique(),
   createdAt: createdAt(),
 });
 
@@ -60,8 +62,31 @@ export const connections = sqliteTable(
     createdBy: text("created_by").references(() => users.id),
     createdAt: createdAt(),
   },
-  (t) => [index("connections_workspace_idx").on(t.workspaceId)],
+  (t) => [
+    index("connections_workspace_idx").on(t.workspaceId),
+    // One connection per app per workspace for now. Reconnecting replaces it.
+    uniqueIndex("connections_workspace_connector_idx").on(t.workspaceId, t.connector),
+  ],
 );
+
+/**
+ * In-flight OAuth sign-ins. The id is the `state` sent to the provider and is
+ * also set as a cookie, so a callback only completes in the browser that
+ * started it. Rows are single-use and expire after a few minutes.
+ */
+export const oauthStates = sqliteTable("oauth_states", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  connector: text("connector").notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: createdAt(),
+});
 
 export const workflows = sqliteTable(
   "workflows",
