@@ -69,6 +69,15 @@ describe("organise", () => {
     ]);
   });
 
+  it("says when nothing is overdue, if that's what was asked", () => {
+    const result = organise({
+      ...at,
+      question: "What's overdue?",
+      records: [task("A", "Book venue", { dueOn: "2026-11-30" })],
+    });
+    expect(result.summary).toBe("Nothing is overdue. Found 1 open item.");
+  });
+
   it("says plainly when nothing matches", () => {
     expect(
       organise({ ...at, question: "budget", records: [task("A", "Book venue")] }),

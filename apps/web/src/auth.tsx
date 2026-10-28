@@ -8,7 +8,7 @@ import {
   UserButton,
 } from "@clerk/react";
 import type { ReactNode } from "react";
-import { Outlet, useNavigate } from "react-router";
+import { Navigate, Outlet, useNavigate, useSearchParams } from "react-router";
 import { setTokenGetter } from "./api";
 
 // Clerk is on when the build has a publishable key. Without one the app
@@ -24,6 +24,22 @@ function TokenBridge() {
   return null;
 }
 
+/**
+ * Clerk hands the router full addresses ("http://host/organise"), but the
+ * router wants a path. Other sites are opened as a normal page load.
+ */
+function toPath(to: string) {
+  const url = new URL(to, window.location.href);
+  return url.origin === window.location.origin ? url.pathname + url.search + url.hash : undefined;
+}
+
+/** Where to go after signing in: the page they came from, never back to sign-in. */
+function afterSignIn(redirect: string | null) {
+  const path = redirect ? toPath(redirect) : undefined;
+  if (!path || /^\/(sign-in|sign-up)/.test(path)) return "/";
+  return path;
+}
+
 /** Root route element. Sits inside the router so Clerk can navigate with it. */
 export function AuthRoot() {
   const navigate = useNavigate();
@@ -31,8 +47,16 @@ export function AuthRoot() {
   return (
     <ClerkProvider
       publishableKey={publishableKey}
-      routerPush={(to) => navigate(to)}
-      routerReplace={(to) => navigate(to, { replace: true })}
+      routerPush={(to) => {
+        const path = toPath(to);
+        if (path) navigate(path);
+        else window.location.assign(to);
+      }}
+      routerReplace={(to) => {
+        const path = toPath(to);
+        if (path) navigate(path, { replace: true });
+        else window.location.replace(to);
+      }}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
       signInFallbackRedirectUrl="/"
@@ -67,10 +91,21 @@ function AuthPage({ children }: { children: ReactNode }) {
   );
 }
 
+/** Someone already signed in doesn't need this page; send them on. */
+function LeaveIfSignedIn() {
+  const [params] = useSearchParams();
+  return <Navigate to={afterSignIn(params.get("redirect_url"))} replace />;
+}
+
 export function SignInPage() {
   return (
     <AuthPage>
-      <SignIn routing="path" path="/sign-in" />
+      <Show when="signed-in">
+        <LeaveIfSignedIn />
+      </Show>
+      <Show when="signed-out">
+        <SignIn routing="path" path="/sign-in" />
+      </Show>
     </AuthPage>
   );
 }
@@ -78,7 +113,12 @@ export function SignInPage() {
 export function SignUpPage() {
   return (
     <AuthPage>
-      <SignUp routing="path" path="/sign-up" />
+      <Show when="signed-in">
+        <LeaveIfSignedIn />
+      </Show>
+      <Show when="signed-out">
+        <SignUp routing="path" path="/sign-up" />
+      </Show>
     </AuthPage>
   );
 }

@@ -29,6 +29,8 @@ const STOP = new Set(
   ),
 );
 
+const asksOverdue = (question: string) => /\b(overdue|late|behind|missed)\b/i.test(question);
+
 export function keywordsOf(question: string): string[] {
   const words = question
     .toLowerCase()
@@ -154,7 +156,10 @@ export function organise(opts: {
   }
 
   return {
-    summary: summarise(relevant.length, keywords, overdue.length, dueSoon.length),
+    summary:
+      (asksOverdue(opts.question) && relevant.length && !overdue.length
+        ? "Nothing is overdue. "
+        : "") + summarise(relevant.length, keywords, overdue.length, dueSoon.length),
     keywords,
     findings,
     matches: relevant.slice(0, 25).map(evidence),

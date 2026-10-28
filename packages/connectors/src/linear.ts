@@ -146,6 +146,17 @@ type RecordNode = IssueNode & {
 
 const RECORD_FIELDS = `${ISSUE_FIELDS} description updatedAt priorityLabel project { name } team { name }`;
 
+/** Linear descriptions are markdown. Keep the words, drop images and link syntax. */
+function plainText(markdown: string) {
+  return markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#+\s*/gm, "")
+    .replace(/[*_`]{1,3}([^*_`]+)[*_`]{1,3}/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /** A Linear issue as Organise sees it: readable text plus the facts findings rely on. */
 function toRecord(n: RecordNode): SourceRecord {
   const done = n.state?.type === "completed" || n.state?.type === "canceled";
@@ -163,7 +174,9 @@ function toRecord(n: RecordNode): SourceRecord {
     kind: "task",
     title: `${n.identifier} ${n.title}`,
     url: n.url,
-    text: [facts.join(". ") + ".", n.description?.trim()].filter(Boolean).join("\n\n"),
+    text: [facts.join(". ") + ".", n.description && plainText(n.description)]
+      .filter(Boolean)
+      .join("\n\n"),
     updatedAt: n.updatedAt,
     owner: n.assignee?.email ?? undefined,
     dueOn: n.dueDate ?? undefined,
