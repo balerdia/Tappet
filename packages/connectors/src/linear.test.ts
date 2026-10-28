@@ -86,7 +86,8 @@ describe("linear", () => {
       dueDate: "2026-10-30",
       state: { name: "In Progress", type: "started" },
       assignee: { email: "sam@example.com" },
-      description: "Logo and photos for the launch.",
+      description:
+        "## Logo\n\nand **photos** for the [launch](https://x.example).\n\n![kit.png](https://uploads.linear.app/kit.png)",
       updatedAt: "2026-10-26T10:00:00.000Z",
       priorityLabel: "High",
       project: { name: "Launch" },
@@ -106,7 +107,7 @@ describe("linear", () => {
       kind: "task",
       title: "ENG-9 Press kit",
       url: "https://linear.app/acme/issue/ENG-9",
-      text: "Status: In Progress. Assigned to sam@example.com. Due 2026-10-30. Priority: High. Project: Launch.\n\nLogo and photos for the launch.",
+      text: "Status: In Progress. Assigned to sam@example.com. Due 2026-10-30. Priority: High. Project: Launch.\n\nLogo\n\nand photos for the launch.",
       updatedAt: "2026-10-26T10:00:00.000Z",
       owner: "sam@example.com",
       dueOn: "2026-10-30",
