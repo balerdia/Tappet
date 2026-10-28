@@ -55,9 +55,20 @@ In your Linear OAuth app, add `<APP_URL>/api/connections/linear/callback` as a c
 ### Docker (self-hosted)
 
 ```sh
-docker build -t tappet .
-docker run -p 8787:8787 -v tappet-data:/data tappet
+docker build -t tappet --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_... .
+docker run -p 8787:8787 -v tappet-data:/data \
+  -e CLERK_SECRET_KEY -e CREDENTIALS_KEY -e LINEAR_CLIENT_ID -e LINEAR_CLIENT_SECRET \
+  -e APP_URL=http://localhost:8787 tappet
 ```
+
+The publishable key is baked into the web app when it's built; the rest are read when the server starts. Leave out the Clerk key and set `-e TAPPET_DEV_AUTH=1` to try it without sign-in. With `APP_URL=http://localhost:8787`, the Linear callback to register is `http://localhost:8787/api/connections/linear/callback`.
+
+### Trying it out
+
+1. Sign up, then open **Connections** and connect Linear.
+2. **Organise**: ask "What's overdue?" or about a project. Findings link to the Linear tasks they came from.
+3. **Automate**: pick "Build your own", e.g. every weekday at 09:00, ask me first, then create a task in Linear. Save it, review it, turn it on.
+4. **Activity**: answer approvals under "Needs you" and see what each run did.
 
 ### Cloudflare (managed)
 
