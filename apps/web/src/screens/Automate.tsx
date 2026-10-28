@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import {
   connectorsUsed,
   examples,
@@ -9,18 +10,10 @@ import {
 } from "@tappet/workflow";
 import { api } from "../api";
 import { useApi } from "../useApi";
+import { SentenceBuilder } from "../components/SentenceBuilder";
 import { SentenceView } from "../components/SentenceView";
 import { WorkflowPanel } from "../components/WorkflowPanel";
-import {
-  AskBox,
-  Button,
-  Card,
-  Chip,
-  Empty,
-  ErrorText,
-  PageHeader,
-  StatusBadge,
-} from "../components/ui";
+import { Button, Card, Chip, Empty, ErrorText, PageHeader, StatusBadge } from "../components/ui";
 
 const STARTERS: { label: string; definition: WorkflowDefinition }[] = [
   { label: "Add a task to Linear", definition: examples.linearTaskExample },
@@ -31,11 +24,16 @@ const STARTERS: { label: string; definition: WorkflowDefinition }[] = [
 
 type Preview = { ok: boolean; issues: ValidationIssue[]; sentences: SentenceLine[] };
 type WorkflowRow = { id: string; name: string; status: WorkflowStatus };
-type Selection = { kind: "saved"; id: string } | { kind: "starter"; index: number };
+type Selection =
+  { kind: "saved"; id: string } | { kind: "starter"; index: number } | { kind: "builder" };
 
 export function Automate() {
   const workflows = useApi<{ workflows: WorkflowRow[] }>("/workflows");
-  const [selection, setSelection] = useState<Selection>();
+  const [params] = useSearchParams();
+  const described = params.get("q") ?? "";
+  const [selection, setSelection] = useState<Selection | undefined>(
+    described ? { kind: "builder" } : undefined,
+  );
 
   // Show the first saved automation, or the first starter if there are none.
   useEffect(() => {
@@ -48,14 +46,14 @@ export function Automate() {
     <div>
       <PageHeader
         title="Automate"
-        intro="Start from a familiar job or describe what should happen. You'll see exactly what it will do before anything runs."
+        intro="Build an automation from simple sentences, or start from a familiar job. You'll see exactly what it will do before anything runs."
       />
 
       <section className="mb-8">
         <h2 className="mb-3 text-sm font-semibold">Your automations</h2>
         <ErrorText>{workflows.error}</ErrorText>
         {workflows.data?.workflows.length === 0 ? (
-          <Empty>Nothing yet. Pick a starter below and save it to try it out.</Empty>
+          <Empty>Nothing yet. Build one below, or start from a familiar job.</Empty>
         ) : (
           <div className="flex flex-wrap gap-2">
             {workflows.data?.workflows.map((w) => {
@@ -88,19 +86,23 @@ export function Automate() {
 
       <section>
         <h2 className="mb-3 text-sm font-semibold">Start something new</h2>
-        <div className="mb-6 space-y-4">
-          <AskBox
-            placeholder="When someone starts a free trial, send them a welcome email"
-            action="Build it"
-          />
-          <div className="flex flex-wrap gap-2">
-            {STARTERS.map((s, index) => (
-              <Chip key={s.label} onClick={() => setSelection({ kind: "starter", index })}>
-                {s.label}
-              </Chip>
-            ))}
-          </div>
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Chip onClick={() => setSelection({ kind: "builder" })}>Build your own</Chip>
+          {STARTERS.map((s, index) => (
+            <Chip key={s.label} onClick={() => setSelection({ kind: "starter", index })}>
+              {s.label}
+            </Chip>
+          ))}
         </div>
+        {selection?.kind === "builder" && (
+          <SentenceBuilder
+            initialName={described}
+            onSaved={(id) => {
+              workflows.reload();
+              setSelection({ kind: "saved", id });
+            }}
+          />
+        )}
         {selection?.kind === "starter" && (
           <StarterPreview
             starter={STARTERS[selection.index]!}

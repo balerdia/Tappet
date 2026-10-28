@@ -5,4 +5,5 @@ export * from "./validate.js";
 export * from "./describe.js";
 export * from "./runner.js";
 export * from "./status.js";
+export * from "./builder.js";
 export * as examples from "./examples.js";
