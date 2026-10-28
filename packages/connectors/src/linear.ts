@@ -1,5 +1,5 @@
 import { linear } from "./manifests.js";
-import type { ConnectorRuntime, OAuthClient, OAuthTokens } from "./types.js";
+import type { ConnectorRuntime, OAuthClient, OAuthTokens, SourceRecord } from "./types.js";
 
 const AUTHORIZE_URL = "https://linear.app/oauth/authorize";
 const TOKEN_URL = "https://api.linear.app/oauth/token";
@@ -136,6 +136,41 @@ function toTask(n: IssueNode) {
   };
 }
 
+type RecordNode = IssueNode & {
+  description?: string | null;
+  updatedAt: string;
+  priorityLabel?: string | null;
+  project?: { name: string } | null;
+  team?: { name: string } | null;
+};
+
+const RECORD_FIELDS = `${ISSUE_FIELDS} description updatedAt priorityLabel project { name } team { name }`;
+
+/** A Linear issue as Organise sees it: readable text plus the facts findings rely on. */
+function toRecord(n: RecordNode): SourceRecord {
+  const done = n.state?.type === "completed" || n.state?.type === "canceled";
+  const facts = [
+    n.state?.name && `Status: ${n.state.name}`,
+    n.assignee?.email ? `Assigned to ${n.assignee.email}` : "Not assigned",
+    n.dueDate && `Due ${n.dueDate}`,
+    n.priorityLabel && n.priorityLabel !== "No priority" && `Priority: ${n.priorityLabel}`,
+    n.project?.name && `Project: ${n.project.name}`,
+    n.team?.name && `Team: ${n.team.name}`,
+  ].filter(Boolean);
+  return {
+    connector: "linear",
+    id: n.id,
+    kind: "task",
+    title: `${n.identifier} ${n.title}`,
+    url: n.url,
+    text: [facts.join(". ") + ".", n.description?.trim()].filter(Boolean).join("\n\n"),
+    updatedAt: n.updatedAt,
+    owner: n.assignee?.email ?? undefined,
+    dueOn: n.dueDate ?? undefined,
+    done,
+  };
+}
+
 const optionalString = (v: unknown) =>
   v === undefined || v === null || v === "" ? undefined : String(v);
 
@@ -225,6 +260,31 @@ export function createLinearConnector(
           throw new Error("Linear didn't update the task.");
         return toTask(issueUpdate.issue);
       },
+    },
+
+    /**
+     * Read-only. With words, Linear's own search; without, the most recently
+     * changed unfinished tasks.
+     */
+    async search(query, ctx) {
+      const token = ctx.credentials.accessToken!;
+      const term = query.trim();
+      if (term) {
+        const { searchIssues } = await graphql<{ searchIssues: { nodes: RecordNode[] } }>(
+          fetchImpl,
+          token,
+          `query($term: String!) { searchIssues(term: $term, first: 50) { nodes { ${RECORD_FIELDS} } } }`,
+          { term },
+        );
+        return searchIssues.nodes.map(toRecord);
+      }
+      const { issues } = await graphql<{ issues: { nodes: RecordNode[] } }>(
+        fetchImpl,
+        token,
+        `query($filter: IssueFilter) { issues(filter: $filter, first: 100, orderBy: updatedAt) { nodes { ${RECORD_FIELDS} } } }`,
+        { filter: { state: { type: { nin: ["completed", "canceled"] } } } },
+      );
+      return issues.nodes.map(toRecord);
     },
   };
 }

@@ -16,15 +16,40 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   );
 }
 
-export function AskBox({ placeholder, action }: { placeholder: string; action: string }) {
+export function AskBox({
+  placeholder,
+  action,
+  onAsk,
+  initial = "",
+  busy,
+}: {
+  placeholder: string;
+  action: string;
+  onAsk?: (text: string) => void;
+  initial?: string;
+  busy?: boolean;
+}) {
   return (
-    <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
+    <form
+      className="flex gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const text = String(new FormData(e.currentTarget).get("q") ?? "").trim();
+        if (text) onAsk?.(text);
+      }}
+    >
       <input
+        name="q"
+        key={initial}
+        defaultValue={initial}
         className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:border-accent"
         placeholder={placeholder}
         aria-label={placeholder}
       />
-      <button className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-surface hover:opacity-90">
+      <button
+        disabled={busy}
+        className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-50"
+      >
         {action}
       </button>
     </form>

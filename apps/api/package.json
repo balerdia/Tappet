@@ -16,6 +16,7 @@
     "@hono/node-server": "^2.1.5",
     "@tappet/connectors": "workspace:*",
     "@tappet/db": "workspace:*",
+    "@tappet/information": "workspace:*",
     "@tappet/workflow": "workspace:*",
     "croner": "11.0.0",
     "hono": "^4.13.14",

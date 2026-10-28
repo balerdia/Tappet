@@ -11,6 +11,7 @@ import {
   type WorkflowDefinition,
   type WorkflowStatus,
 } from "@tappet/workflow";
+import { keywordsOf, organise } from "@tappet/information";
 import { bearerToken, findOrCreateAccount, type Authenticator } from "./auth.js";
 import { createCredentialStore } from "./credentials.js";
 import { registerRunRoutes } from "./run-routes.js";
@@ -67,6 +68,7 @@ export type AppEnv = { Variables: { userId: string; workspaceId: string } };
 
 const DefinitionBody = z.object({ definition: z.unknown() });
 const RunBody = z.object({ trigger: z.unknown().optional() }).optional();
+const AskBody = z.object({ question: z.string().trim().min(1).max(500) });
 
 export function createApp(deps: AppDeps, services = createServices(deps)) {
   const { db } = deps;
@@ -515,6 +517,60 @@ export function createApp(deps: AppDeps, services = createServices(deps)) {
   });
 
   registerRunRoutes(app, deps, runs, audit);
+
+  // ---------- Organise ----------
+
+  /**
+   * Answers a question from the connected apps. Read-only: it only searches,
+   * and says which apps it looked in and which it couldn't.
+   */
+  app.post("/organise/ask", async (c) => {
+    const { question } = AskBody.parse(await c.req.json());
+    const workspaceId = c.get("workspaceId");
+    const rows = await db
+      .select()
+      .from(schema.connections)
+      .where(eq(schema.connections.workspaceId, workspaceId));
+    const keywords = keywordsOf(question);
+    // Each word on its own: Linear's search wants every word to match.
+    const terms = keywords.length ? keywords.slice(0, 4) : [""];
+
+    const sources: { connector: string; name: string; status: string; found?: number }[] = [];
+    const records = [];
+    for (const runtime of deps.runtimes.filter((r) => r.search)) {
+      const { id, name } = runtime.manifest;
+      const row = rows.find((r) => r.connector === id);
+      if (row?.status !== "connected") {
+        sources.push({ connector: id, name, status: row ? "needs_reconnect" : "not_connected" });
+        continue;
+      }
+      const ctx = await credentials?.contextFor(workspaceId, id);
+      if (!ctx) {
+        sources.push({ connector: id, name, status: "needs_reconnect" });
+        continue;
+      }
+      try {
+        const found = (await Promise.all(terms.map((t) => runtime.search!(t, ctx)))).flat();
+        records.push(...found);
+        sources.push({ connector: id, name, status: "searched", found: found.length });
+      } catch (err) {
+        console.error(err);
+        sources.push({ connector: id, name, status: "failed" });
+      }
+    }
+
+    const now = deps.now();
+    const result = organise({
+      question,
+      records,
+      today: now.toISOString().slice(0, 10),
+      retrievedAt: now.toISOString(),
+    });
+    if (!sources.some((s) => s.status === "searched")) {
+      result.summary = "There's nothing to search yet. Connect an app on the Connections screen.";
+    }
+    return c.json({ question, sources, ...result });
+  });
 
   // ---------- Activity ----------
 
