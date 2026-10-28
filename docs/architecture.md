@@ -63,6 +63,17 @@ All run state is in the database, so several hosts can tick at once. Before touc
 
 Approvals: `GET /api/runs` and `GET /api/runs/:id` list what each run is waiting on, and `POST /api/runs/:id/approvals` records a yes or no (only once) and carries the run on straight away. Activity shows these under "Needs you".
 
+## Apps through Activepieces
+
+`packages/pieces` (Node only) runs [Activepieces](https://github.com/activepieces/activepieces) pieces as Tappet connectors. `pieceConnector(spec, piece)` takes a piece and a short spec, and returns a manifest for the builder and a runtime for the runner:
+
+- The piece supplies its name, description and OAuth details (sign-in address, token address, scopes), so `createOAuth2Client` in `@tappet/connectors` can connect it without app-specific code.
+- The spec maps Tappet's own action names and inputs (`gmail.sendEmail` with `to`, `subject`, `body`) onto the piece's actions, so saved workflows don't depend on how Activepieces names things.
+- It can also add a read-only `search` for Organise, built on the piece's own actions.
+- Results are trimmed to their data before they're stored, and tokens are scrubbed from error messages, because both end up in run history.
+
+Gmail (`@activepieces/piece-gmail`) and Google Drive (`@activepieces/piece-google-drive`) are the first two, sharing one Google OAuth app. Adding another app is a package and a spec. Pieces need Node, so they're loaded by `src/node.ts` and never reach the Workers bundle; managed hosting will run them in a Cloudflare Container.
+
 ## Not built yet
 
 Roughly in milestone order:

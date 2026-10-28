@@ -40,24 +40,31 @@ The dev server uses a local SQLite file in `data/`. Without Clerk keys it signs 
 
 All optional. Each one switches a feature on.
 
-| Variable                     | Used by | What it does                                                                                     |
-| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
-| `CLERK_SECRET_KEY`           | API     | Real sign-in with Clerk. The first signed-in request creates the person's account and workspace. |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Web     | Shows Clerk's sign-in and sign-up pages. Set both Clerk keys or neither.                         |
-| `CREDENTIALS_KEY`            | API     | 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts stored app tokens.                 |
-| `LINEAR_CLIENT_ID`           | API     | Linear OAuth app. Needs `CREDENTIALS_KEY` too.                                                   |
-| `LINEAR_CLIENT_SECRET`       | API     |                                                                                                  |
-| `APP_URL`                    | API     | Public address of the web app, e.g. `https://app.example.com`. Defaults to the request origin.   |
-| `TAPPET_DEV_AUTH`            | API     | `1` forces dev sign-in, `0` turns it off. `pnpm dev` uses `auto`: on unless Clerk is set.        |
+| Variable                     | Used by | What it does                                                                                        |
+| ---------------------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `CLERK_SECRET_KEY`           | API     | Real sign-in with Clerk. The first signed-in request creates the person's account and workspace.    |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Web     | Shows Clerk's sign-in and sign-up pages. Set both Clerk keys or neither.                            |
+| `CREDENTIALS_KEY`            | API     | 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts stored app tokens.                    |
+| `LINEAR_CLIENT_ID`           | API     | Linear OAuth app. Needs `CREDENTIALS_KEY` too.                                                      |
+| `LINEAR_CLIENT_SECRET`       | API     |                                                                                                     |
+| `GOOGLE_CLIENT_ID`           | API     | One Google OAuth app for Gmail and Google Drive. Needs `CREDENTIALS_KEY` too. Node and Docker only. |
+| `GOOGLE_CLIENT_SECRET`       | API     |                                                                                                     |
+| `APP_URL`                    | API     | Public address of the web app, e.g. `https://app.example.com`. Defaults to the request origin.      |
+| `TAPPET_DEV_AUTH`            | API     | `1` forces dev sign-in, `0` turns it off. `pnpm dev` uses `auto`: on unless Clerk is set.           |
 
-In your Linear OAuth app, add `<APP_URL>/api/connections/linear/callback` as a callback URL. For local work that's `http://localhost:5173/api/connections/linear/callback`.
+Each app calls back to `<APP_URL>/api/connections/<app>/callback`. For local work:
+
+- **Google** (Google Cloud console → APIs & Services → Credentials → OAuth client ID, type "Web application"): add `http://localhost:5173/api/connections/gmail/callback` and `http://localhost:5173/api/connections/drive/callback` as authorised redirect URIs, and enable the Gmail API and Google Drive API for the project.
+- **Linear**: add `http://localhost:5173/api/connections/linear/callback`.
+
+Gmail and Google Drive run on [Activepieces](https://www.activepieces.com) pieces, which need Node. They work with `pnpm dev`, the Node server and Docker, but not on Cloudflare Workers.
 
 ### Docker (self-hosted)
 
 ```sh
 docker build -t tappet --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_... .
 docker run -p 8787:8787 -v tappet-data:/data \
-  -e CLERK_SECRET_KEY -e CREDENTIALS_KEY -e LINEAR_CLIENT_ID -e LINEAR_CLIENT_SECRET \
+  -e CLERK_SECRET_KEY -e CREDENTIALS_KEY -e GOOGLE_CLIENT_ID -e GOOGLE_CLIENT_SECRET \
   -e APP_URL=http://localhost:8787 tappet
 ```
 
@@ -65,9 +72,9 @@ The publishable key is baked into the web app when it's built; the rest are read
 
 ### Trying it out
 
-1. Sign up, then open **Connections** and connect Linear.
-2. **Organise**: ask "What's overdue?" or about a project. Findings link to the Linear tasks they came from.
-3. **Automate**: pick "Build your own", e.g. every weekday at 09:00, ask me first, then create a task in Linear. Save it, review it, turn it on.
+1. Sign up, then open **Connections** and connect Gmail and Google Drive.
+2. **Organise**: ask about a project, customer or deadline. Findings link to the emails, files and tasks they came from.
+3. **Automate**: pick "Build your own", e.g. every Friday at 16:00, create a file in Google Drive, ask me first, then send an email. Save it, review it, turn it on.
 4. **Activity**: answer approvals under "Needs you" and see what each run did.
 
 ### Cloudflare (managed)

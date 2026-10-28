@@ -16,6 +16,25 @@ const catalog = createCatalog([
     requiredInputs: ["title"],
   },
   {
+    connector: "gmail",
+    name: "sendEmail",
+    kind: "action",
+    phrase: "send an email",
+    requiredInputs: ["to", "subject", "body"],
+  },
+  {
+    connector: "gmail",
+    name: "createDraft",
+    kind: "action",
+    phrase: "draft an email for me to check",
+  },
+  {
+    connector: "drive",
+    name: "createTextFile",
+    kind: "action",
+    phrase: "create a file in Google Drive",
+  },
+  {
     connector: "http",
     name: "request",
     kind: "action",
@@ -70,6 +89,46 @@ describe("sentence builder", () => {
     expect(when({ kind: "weekdays", time: "17:00", timezone: "UTC" })).toMatchObject({
       cron: "0 17 * * 1-5",
     });
+  });
+
+  it("sends or drafts email, and creates Drive files", () => {
+    const def = buildWorkflow({
+      name: "Friday notes",
+      when: { kind: "weekly", day: 5, time: "16:00", timezone: "UTC" },
+      steps: [
+        { kind: "driveFile", name: "Notes {{trigger.scheduledFor}}", text: "Weekly notes" },
+        { kind: "email", to: " team@acme.example ", subject: "Notes", body: "In Drive." },
+        { kind: "email", to: "me@acme.example", subject: "Check", body: "x", draftOnly: true },
+      ],
+    });
+    expect(validateWorkflow(def, catalog).issues).toEqual([]);
+    expect(def.steps[1]).toMatchObject({
+      connector: "gmail",
+      action: "sendEmail",
+      input: { to: { literal: "team@acme.example" } },
+    });
+    expect(def.steps[2]).toMatchObject({ action: "createDraft" });
+    expect(describeWorkflowAsText(def, catalog).split("\n").slice(1)).toEqual([
+      "Then create a file in Google Drive",
+      "Then send an email",
+      "Then draft an email for me to check",
+    ]);
+    expect(
+      builderProblems({
+        name: "x",
+        when: { kind: "manual" },
+        steps: [
+          { kind: "email", to: "not-an-address", subject: "", body: "" },
+          { kind: "driveFile", name: "", text: "" },
+        ],
+      }),
+    ).toEqual([
+      "Step 1: check the email address.",
+      "Step 1: give the email a subject.",
+      "Step 1: write the message.",
+      "Step 2: name the file.",
+      "Step 2: write what goes in the file.",
+    ]);
   });
 
   it("says which blanks still need filling in", () => {

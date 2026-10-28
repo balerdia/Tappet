@@ -1,0 +1,23 @@
+{
+  "name": "@tappet/pieces",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Runs Activepieces pieces as Tappet connectors. Node only: never in the Workers bundle.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@activepieces/piece-gmail": "0.18.0",
+    "@activepieces/piece-google-drive": "0.12.0",
+    "@tappet/connectors": "workspace:*",
+    "@tappet/workflow": "workspace:*"
+  },
+  "devDependencies": {
+    "nock": "14.0.5"
+  }
+}
