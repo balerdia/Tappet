@@ -5,7 +5,8 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createNodeDb } from "@tappet/db/node";
 import { createApp, createServices } from "./app.js";
-import { baseDeps, seedDevWorkspace } from "./setup.js";
+import { loadPieceConnectors } from "@tappet/pieces";
+import { baseDeps, seedDevWorkspace, withConnectors } from "./setup.js";
 
 // Self-hosted entry point: Node directly, or inside Docker.
 
@@ -13,7 +14,8 @@ const dbPath = resolve(process.env.DATABASE_PATH ?? "data/tappet.sqlite");
 mkdirSync(dirname(dbPath), { recursive: true });
 const db = createNodeDb(dbPath);
 
-const deps = baseDeps(db, process.env);
+// Gmail, Drive and other Activepieces pieces only run on Node.
+const deps = withConnectors(baseDeps(db, process.env), await loadPieceConnectors(process.env));
 const devAuth = Boolean(deps.devAuth);
 if (devAuth) await seedDevWorkspace(db);
 if (!devAuth && !deps.auth)

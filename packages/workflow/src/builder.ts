@@ -17,6 +17,8 @@ export type BuilderWhen =
     };
 
 export type BuilderStep =
+  | { kind: "email"; to: string; subject: string; body: string; draftOnly?: boolean }
+  | { kind: "driveFile"; name: string; text: string }
   | { kind: "linearTask"; title: string; description?: string }
   | { kind: "webRequest"; method: "GET" | "POST"; url: string; message?: string }
   | { kind: "approval"; message: string }
@@ -38,6 +40,26 @@ function trigger(when: BuilderWhen): Trigger {
 
 function step(s: BuilderStep, id: string): Step {
   switch (s.kind) {
+    case "email":
+      return {
+        kind: "action",
+        id,
+        connector: "gmail",
+        action: s.draftOnly ? "createDraft" : "sendEmail",
+        input: {
+          to: { literal: s.to.trim() },
+          subject: { template: s.subject },
+          body: { template: s.body },
+        },
+      };
+    case "driveFile":
+      return {
+        kind: "action",
+        id,
+        connector: "drive",
+        action: "createTextFile",
+        input: { name: { template: s.name }, text: { template: s.text } },
+      };
     case "linearTask":
       return {
         kind: "action",
@@ -95,6 +117,22 @@ export function builderProblems(spec: BuilderSpec): string[] {
   if (!spec.steps.length) problems.push("Add at least one step.");
   spec.steps.forEach((s, i) => {
     const at = `Step ${i + 1}: `;
+    if (s.kind === "email") {
+      const addresses = s.to
+        .split(/[,;]/)
+        .map((a) => a.trim())
+        .filter(Boolean);
+      if (!addresses.length) problems.push(`${at}say who to email.`);
+      else if (addresses.some((a) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a))) {
+        problems.push(`${at}check the email address.`);
+      }
+      if (!s.subject.trim()) problems.push(`${at}give the email a subject.`);
+      if (!s.body.trim()) problems.push(`${at}write the message.`);
+    }
+    if (s.kind === "driveFile") {
+      if (!s.name.trim()) problems.push(`${at}name the file.`);
+      if (!s.text.trim()) problems.push(`${at}write what goes in the file.`);
+    }
     if (s.kind === "linearTask" && !s.title.trim()) problems.push(`${at}give the task a title.`);
     if (s.kind === "webRequest" && !/^https:\/\/[^\s/]+/.test(s.url.trim())) {
       problems.push(`${at}the address must start with https://.`);

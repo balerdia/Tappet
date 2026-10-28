@@ -23,6 +23,16 @@ const field =
 /** The "Then" choices, and what a new one starts with. */
 const STEP_CHOICES: { label: string; connector?: string; make: () => BuilderStep }[] = [
   {
+    label: "Send an email",
+    connector: "gmail",
+    make: () => ({ kind: "email", to: "", subject: "", body: "" }),
+  },
+  {
+    label: "Create a file in Google Drive",
+    connector: "drive",
+    make: () => ({ kind: "driveFile", name: "", text: "" }),
+  },
+  {
     label: "Create a task in Linear",
     connector: "linear",
     make: () => ({ kind: "linearTask", title: "" }),
@@ -234,6 +244,63 @@ function WhenEditor({ when, onChange }: { when: BuilderWhen; onChange: (w: Build
 
 function StepEditor({ step, onChange }: { step: BuilderStep; onChange: (s: BuilderStep) => void }) {
   switch (step.kind) {
+    case "email":
+      return (
+        <div className="flex-1 space-y-2 text-sm">
+          <p className="font-medium">{step.draftOnly ? "Draft an email" : "Send an email"}</p>
+          <input
+            aria-label="Email to"
+            className={`${field} w-full`}
+            placeholder="To (separate several with commas)"
+            value={step.to}
+            onChange={(e) => onChange({ ...step, to: e.target.value })}
+          />
+          <input
+            aria-label="Email subject"
+            className={`${field} w-full`}
+            placeholder="Subject"
+            value={step.subject}
+            onChange={(e) => onChange({ ...step, subject: e.target.value })}
+          />
+          <textarea
+            aria-label="Email message"
+            className={`${field} w-full`}
+            placeholder="Message"
+            rows={3}
+            value={step.body}
+            onChange={(e) => onChange({ ...step, body: e.target.value })}
+          />
+          <label className="flex items-center gap-2 text-muted">
+            <input
+              type="checkbox"
+              checked={!!step.draftOnly}
+              onChange={(e) => onChange({ ...step, draftOnly: e.target.checked })}
+            />
+            Just draft it in Gmail for me to send
+          </label>
+        </div>
+      );
+    case "driveFile":
+      return (
+        <div className="flex-1 space-y-2 text-sm">
+          <p className="font-medium">Create a file in Google Drive</p>
+          <input
+            aria-label="File name"
+            className={`${field} w-full`}
+            placeholder="File name"
+            value={step.name}
+            onChange={(e) => onChange({ ...step, name: e.target.value })}
+          />
+          <textarea
+            aria-label="File text"
+            className={`${field} w-full`}
+            placeholder="What goes in it"
+            rows={3}
+            value={step.text}
+            onChange={(e) => onChange({ ...step, text: e.target.value })}
+          />
+        </div>
+      );
     case "linearTask":
       return (
         <div className="flex-1 space-y-2 text-sm">

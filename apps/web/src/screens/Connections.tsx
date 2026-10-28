@@ -99,14 +99,15 @@ export function Connections() {
                   >
                     {connection ? "Reconnect" : "Connect"}
                   </button>
-                ) : (
-                  <button
-                    disabled
-                    className="shrink-0 rounded-lg border border-line px-3 py-1 text-sm opacity-60"
-                    title="Coming soon"
+                ) : m.available ? (
+                  <span
+                    className="shrink-0 text-right text-xs text-muted"
+                    title="This server needs the app's OAuth keys. See the README."
                   >
-                    Connect
-                  </button>
+                    Not set up yet
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-xs text-muted">Coming soon</span>
                 )}
               </div>
             </Card>

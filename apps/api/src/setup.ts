@@ -20,6 +20,9 @@ export type ServerEnv = {
   CREDENTIALS_KEY?: string;
   LINEAR_CLIENT_ID?: string;
   LINEAR_CLIENT_SECRET?: string;
+  /** One Google OAuth app covers Gmail and Google Drive. Node only (they run on Activepieces). */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   /** Where the web app lives, e.g. https://app.tappet.com. Defaults to the request's origin. */
   APP_URL?: string;
 };
@@ -59,6 +62,25 @@ export function baseDeps(db: Database, env: ServerEnv = {}): AppDeps {
           authorizedParties: env.APP_URL ? [env.APP_URL] : undefined,
         })
       : undefined,
+  };
+}
+
+/**
+ * Adds connectors loaded at start-up (the Activepieces pieces on Node). A
+ * loaded connector replaces the built-in description with the same id.
+ */
+export function withConnectors(
+  deps: AppDeps,
+  extra: Pick<AppDeps, "manifests" | "runtimes" | "oauth">,
+): AppDeps {
+  const ids = new Set(extra.manifests.map((m) => m.id));
+  const manifests = [...deps.manifests.filter((m) => !ids.has(m.id)), ...extra.manifests];
+  return {
+    ...deps,
+    manifests,
+    catalog: catalogFromManifests(manifests),
+    runtimes: [...deps.runtimes.filter((r) => !ids.has(r.manifest.id)), ...extra.runtimes],
+    oauth: { ...deps.oauth, ...extra.oauth },
   };
 }
 
