@@ -35,6 +35,9 @@ importers:
       '@tappet/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@tappet/information':
+        specifier: workspace:*
+        version: link:../../packages/information
       '@tappet/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow

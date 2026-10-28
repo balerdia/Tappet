@@ -47,6 +47,26 @@ function fakeLinearApi(seen: string[]) {
   return (async (_url: URL | string, init?: RequestInit) => {
     seen.push(new Headers(init?.headers).get("authorization") ?? "");
     const { query, variables } = JSON.parse(String(init?.body));
+    if (query.includes("searchIssues")) {
+      return Response.json({
+        data: {
+          searchIssues: {
+            nodes: [
+              {
+                id: "iss_9",
+                identifier: "ENG-9",
+                title: `Launch ${variables.term}`.trim(),
+                url: "https://linear.app/acme/issue/ENG-9",
+                dueDate: "2020-01-01",
+                state: { name: "Todo", type: "unstarted" },
+                assignee: null,
+                updatedAt: "2026-10-01T00:00:00.000Z",
+              },
+            ],
+          },
+        },
+      });
+    }
     if (query.includes("teams")) {
       return Response.json({ data: { teams: { nodes: [{ id: "team_1" }] } } });
     }
@@ -268,6 +288,41 @@ describe("sign up → connect Linear → turn on → run", () => {
     await app.request("/api/connections/linear", as(token, "DELETE"));
     const ran = await app.request(`/api/workflows/${created.id}/runs`, as(token, "POST"));
     expect(ran.status).toBe(409);
+    expect(await deps.db.select().from(schema.runs)).toHaveLength(0);
+  });
+
+  it("answers questions from Linear, read-only, with links", async () => {
+    const token = "good-sam";
+    const before = await (
+      await app.request("/api/organise/ask", as(token, "POST", { question: "launch?" }))
+    ).json();
+    expect(before.sources).toEqual([
+      { connector: "linear", name: "Linear", status: "not_connected" },
+    ]);
+    expect(before.summary).toBe(
+      "There's nothing to search yet. Connect an app on the Connections screen.",
+    );
+
+    const { state, cookie } = await connectLinear(token);
+    await app.request(`/api/connections/linear/callback?code=abc&state=${state}`, {
+      headers: { cookie },
+    });
+    const res = await app.request(
+      "/api/organise/ask",
+      as(token, "POST", { question: "What's left for the launch?" }),
+    );
+    expect(res.status).toBe(200);
+    const answer = await res.json();
+    expect(answer.sources).toEqual([
+      { connector: "linear", name: "Linear", status: "searched", found: 1 },
+    ]);
+    expect(answer.findings.map((f: { summary: string }) => f.summary)).toEqual([
+      "ENG-9 Launch launch was due 1 Jan and isn't finished.",
+      "Nobody is assigned to ENG-9 Launch launch.",
+    ]);
+    expect(answer.matches[0].url).toBe("https://linear.app/acme/issue/ENG-9");
+    expect(linearTokens.every((t) => t === "Bearer lin_access_1")).toBe(true);
+    // Asking never writes anything.
     expect(await deps.db.select().from(schema.runs)).toHaveLength(0);
   });
 

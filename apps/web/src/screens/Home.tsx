@@ -1,11 +1,7 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { AskBox, Card, Chip } from "../components/ui";
 
-const ORGANISE_STARTERS = [
-  "Organise a messy project",
-  "Collect information from several apps",
-  "What's still outstanding?",
-];
+const ORGANISE_STARTERS = ["What's still outstanding?", "What's overdue?", "What's due this week?"];
 const AUTOMATE_STARTERS = [
   "Welcome new customers",
   "Follow up with enquiries",
@@ -16,6 +12,9 @@ const AUTOMATE_STARTERS = [
 ];
 
 export function Home() {
+  const navigate = useNavigate();
+  const ask = (q: string) => navigate(`/organise?${new URLSearchParams({ q })}`);
+  const describe = (q: string) => navigate(`/automate?${new URLSearchParams({ q })}`);
   return (
     <div>
       <div className="mb-10">
@@ -31,10 +30,16 @@ export function Home() {
           <p className="mt-1 mb-4 text-sm text-muted">
             Make sense of what's scattered across your apps.
           </p>
-          <AskBox placeholder="Ask about a project, customer or deadline" action="Ask" />
+          <AskBox
+            placeholder="Ask about a project, customer or deadline"
+            action="Ask"
+            onAsk={ask}
+          />
           <div className="mt-4 flex flex-wrap gap-2">
             {ORGANISE_STARTERS.map((s) => (
-              <Chip key={s}>{s}</Chip>
+              <Chip key={s} onClick={() => ask(s)}>
+                {s}
+              </Chip>
             ))}
           </div>
           <Link to="/organise" className="mt-4 inline-block text-sm text-accent hover:underline">
@@ -47,10 +52,12 @@ export function Home() {
           <p className="mt-1 mb-4 text-sm text-muted">
             Turn everyday jobs into processes that look after themselves.
           </p>
-          <AskBox placeholder="Describe what should happen" action="Start" />
+          <AskBox placeholder="Describe what should happen" action="Start" onAsk={describe} />
           <div className="mt-4 flex flex-wrap gap-2">
             {AUTOMATE_STARTERS.map((s) => (
-              <Chip key={s}>{s}</Chip>
+              <Chip key={s} onClick={() => describe(s)}>
+                {s}
+              </Chip>
             ))}
           </div>
           <Link to="/automate" className="mt-4 inline-block text-sm text-accent hover:underline">

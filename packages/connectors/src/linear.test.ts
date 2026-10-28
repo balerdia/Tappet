@@ -77,6 +77,50 @@ describe("linear", () => {
     expect(out.items[0]).toMatchObject({ state: "started", assigneeEmail: "a@example.com" });
   });
 
+  it("searches tasks as records Organise can cite", async () => {
+    const node = {
+      id: "i9",
+      identifier: "ENG-9",
+      title: "Press kit",
+      url: "https://linear.app/acme/issue/ENG-9",
+      dueDate: "2026-10-30",
+      state: { name: "In Progress", type: "started" },
+      assignee: { email: "sam@example.com" },
+      description: "Logo and photos for the launch.",
+      updatedAt: "2026-10-26T10:00:00.000Z",
+      priorityLabel: "High",
+      project: { name: "Launch" },
+      team: null,
+    };
+    const { impl, calls } = recordingFetch(({ query }) =>
+      query.includes("searchIssues")
+        ? Response.json({ data: { searchIssues: { nodes: [node] } } })
+        : Response.json({ data: { issues: { nodes: [{ ...node, assignee: null }] } } }),
+    );
+    const linear = createLinearConnector(impl);
+
+    const [found] = await linear.search!("launch", ctx);
+    expect(found).toEqual({
+      connector: "linear",
+      id: "i9",
+      kind: "task",
+      title: "ENG-9 Press kit",
+      url: "https://linear.app/acme/issue/ENG-9",
+      text: "Status: In Progress. Assigned to sam@example.com. Due 2026-10-30. Priority: High. Project: Launch.\n\nLogo and photos for the launch.",
+      updatedAt: "2026-10-26T10:00:00.000Z",
+      owner: "sam@example.com",
+      dueOn: "2026-10-30",
+      done: false,
+    });
+    expect(calls[0]!.body.variables).toEqual({ term: "launch" });
+
+    // No words: the open tasks, most recently changed first.
+    const [open] = await linear.search!("  ", ctx);
+    expect(open?.owner).toBeUndefined();
+    expect(open?.text).toContain("Not assigned");
+    expect(calls[1]!.body.query).toContain("orderBy: updatedAt");
+  });
+
   it("reports a rejected token as needing to reconnect", async () => {
     const { impl } = recordingFetch(() => new Response("", { status: 401 }));
     await expect(

@@ -43,6 +43,12 @@ export type SourceRecord = {
   updatedAt: string;
   /** Who in the workspace may see this, as reported by the source. */
   visibleTo?: string[];
+  /** For tasks and requests: who it's assigned to, as the source reports it. */
+  owner?: string;
+  /** For tasks: the date it's due (YYYY-MM-DD), as the source reports it. */
+  dueOn?: string;
+  /** For tasks: finished or cancelled, as the source reports it. */
+  done?: boolean;
 };
 
 export type ConnectorContext = {
