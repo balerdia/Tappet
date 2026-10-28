@@ -3,7 +3,7 @@ import * as schema from "./schema.js";
 
 export { schema };
 // Re-exported so callers share one drizzle-orm instance.
-export { and, asc, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
+export { and, asc, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 export * from "./schema.js";
 
 /**

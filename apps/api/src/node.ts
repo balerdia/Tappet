@@ -24,19 +24,23 @@ const services = createServices(deps);
 const server = new Hono();
 server.route("/", createApp(deps, services));
 
-// Carry on runs whose wait or retry is over. One tick at a time.
-let ticking = false;
-setInterval(async () => {
-  if (ticking) return;
-  ticking = true;
-  try {
-    await services.runs.advanceDue();
-  } catch (err) {
-    console.error("Run tick failed:", err);
-  } finally {
-    ticking = false;
-  }
-}, 30_000).unref();
+// The runner: start scheduled automations and carry on runs that are due.
+// One tick at a time. RUNNER=0 turns it off, for when another host runs it.
+const intervalMs = Number(process.env.RUNNER_INTERVAL_MS) || 15_000;
+if (process.env.RUNNER !== "0") {
+  let ticking = false;
+  setInterval(async () => {
+    if (ticking) return;
+    ticking = true;
+    try {
+      await services.runs.tick();
+    } catch (err) {
+      console.error("Run tick failed:", err);
+    } finally {
+      ticking = false;
+    }
+  }, intervalMs).unref();
+}
 
 // Serve the built web app when it's there (Docker image, production builds).
 const webDist = process.env.WEB_DIST ?? resolve(import.meta.dirname, "../../web/dist");

@@ -15,9 +15,9 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  /** Cron Trigger: carry on runs whose wait or retry is over. */
+  /** Cron Trigger, every minute: start scheduled automations and carry on runs that are due. */
   async scheduled(_controller: ScheduledController, env: WorkerEnv) {
     const db = createD1Db(env.DB);
-    await createServices(baseDeps(db, env)).runs.advanceDue();
+    await createServices(baseDeps(db, env)).runs.tick();
   },
 } satisfies ExportedHandler<WorkerEnv>;
