@@ -189,6 +189,8 @@ export function describeDuration(ms: number): string {
   return `${ms} ms`;
 }
 
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function describeCron(cron: string): string {
   const [minute, hour, dom, month, dow] = cron.trim().split(/\s+/);
   const simpleTime = /^\d+$/.test(minute ?? "") && /^\d+$/.test(hour ?? "");
@@ -196,6 +198,8 @@ function describeCron(cron: string): string {
   if (simpleTime && dom === "*" && month === "*") {
     if (dow === "*") return `every day at ${time}`;
     if (dow === "1-5") return `every weekday at ${time}`;
+    const day = DAYS[Number(dow)];
+    if (/^[0-6]$/.test(dow ?? "") && day) return `every ${day} at ${time}`;
   }
   if (minute === "0" && hour === "*" && dom === "*" && month === "*" && dow === "*") {
     return "every hour";
